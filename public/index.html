@@ -23,12 +23,22 @@
         <p class="tagline">ta semaine, sans prise de tête</p>
       </div>
     </div>
+    <button id="btn-settings" class="settings-btn" type="button" aria-label="Réglages">⚙️</button>
   </header>
 
   <main id="main">
 
+    <!-- ===== VUE AUJOURD'HUI ===== -->
+    <section id="view-today" class="view" aria-labelledby="today-heading">
+      <div class="view-intro">
+        <h2 id="today-heading">Aujourd'hui</h2>
+        <p class="hand-note" id="today-subnote">tes 3 repas du jour, en un coup d'œil 👀</p>
+      </div>
+      <div id="today-list" class="week-list"><!-- rempli en JS --></div>
+    </section>
+
     <!-- ===== VUE SEMAINE ===== -->
-    <section id="view-week" class="view" aria-labelledby="week-heading">
+    <section id="view-week" class="view" hidden aria-labelledby="week-heading">
       <div class="view-intro">
         <h2 id="week-heading">Ta semaine</h2>
         <p class="hand-note">choisis un plat par repas, on s'occupe du reste ✏️</p>
@@ -44,6 +54,7 @@
       </div>
       <div class="shopping-toolbar">
         <button id="btn-refresh-list" class="btn btn-primary" type="button">🔄 Actualiser la liste</button>
+        <button id="btn-share-list" class="btn btn-ghost" type="button" style="margin-top:10px">📤 Partager la liste</button>
         <div id="shopping-progress" class="shopping-progress" hidden></div>
       </div>
       <div id="shopping-list" class="shopping-list"><!-- rempli en JS --></div>
@@ -52,7 +63,11 @@
   </main>
 
   <nav class="tabbar" aria-label="Navigation principale">
-    <button class="tab active" data-view="view-week" type="button">
+    <button class="tab active" data-view="view-today" type="button">
+      <span class="tab-icon" aria-hidden="true">🏠</span>
+      <span>Aujourd'hui</span>
+    </button>
+    <button class="tab" data-view="view-week" type="button">
       <span class="tab-icon" aria-hidden="true">🗓️</span>
       <span>Ma semaine</span>
     </button>
@@ -75,6 +90,8 @@
     </div>
     <div id="picker-options" class="picker-options"><!-- rempli en JS --></div>
 
+    <button id="btn-reroll" class="btn btn-ghost btn-reroll" type="button">🔁 Ces choix ne me tentent pas</button>
+
     <div class="picker-settings">
       <div class="stepper-row">
         <span class="stepper-label">👥 Nombre de personnes</span>
@@ -87,6 +104,10 @@
       <label class="bonus-row" id="bonus-row" hidden>
         <input type="checkbox" id="bonus-toggle" />
         <span>🍱 + 1 part pour <strong>demain midi</strong></span>
+      </label>
+      <label class="bonus-row" id="cancel-row">
+        <input type="checkbox" id="cancel-toggle" />
+        <span>🚫 Repas annulé <strong>(on saute ce repas)</strong></span>
       </label>
     </div>
 
@@ -103,7 +124,46 @@
       <h3 id="recipe-title"></h3>
       <button class="sheet-close" type="button" data-close-recipe aria-label="Fermer">✕</button>
     </div>
+    <div class="favorite-row">
+      <button id="btn-love" class="fav-btn" type="button">❤️ J'adore</button>
+      <button id="btn-ban" class="fav-btn" type="button">🚫 Jamais ça</button>
+    </div>
     <div id="recipe-content" class="recipe-content"><!-- rempli en JS --></div>
+  </div>
+</div>
+
+<!-- ===== FEUILLE : réglages ===== -->
+<div id="sheet-backdrop-settings" class="sheet-backdrop" hidden>
+  <div id="sheet-settings" class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <p class="sheet-eyebrow">Réglages</p>
+      <h3 id="settings-title">Rappels</h3>
+      <button class="sheet-close" type="button" data-close-settings aria-label="Fermer">✕</button>
+    </div>
+
+    <label class="bonus-row" id="reminder-enabled-row">
+      <input type="checkbox" id="reminder-enabled" />
+      <span>🔔 Activer un <strong>rappel repas</strong></span>
+    </label>
+
+    <div class="settings-field">
+      <label for="reminder-time">À quelle heure ?</label>
+      <input type="time" id="reminder-time" value="17:00" />
+    </div>
+
+    <div class="settings-field">
+      <label for="reminder-meal">Pour quel repas ?</label>
+      <select id="reminder-meal">
+        <option value="petit-dej">Petit-déj</option>
+        <option value="dejeuner">Déjeuner</option>
+        <option value="diner" selected>Dîner</option>
+      </select>
+    </div>
+
+    <p class="hand-note settings-note" id="settings-note">tu recevras une notif même appli fermée, une fois l'autorisation donnée 🔔</p>
+
+    <button id="btn-save-reminder" class="btn btn-primary" type="button">Enregistrer</button>
   </div>
 </div>
 

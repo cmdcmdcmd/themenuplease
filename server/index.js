@@ -1,6 +1,8 @@
 const express = require("express");
 const path = require("node:path");
 const { db, DAYS, MEALS } = require("./db");
+const { vapidKeys, sendToAll, getParisNow } = require("./push");
+const { weekOptions } = require("./seed/weekOptions");
 
 const app = express();
 app.use(express.json());
@@ -37,7 +39,33 @@ const TAG_LABELS = {
   "fer-magnesium": "Fer & magnésium",
 };
 
-function parseRecipeRow(row) {
+const WEEKEND_DAYS = ["samedi", "dimanche"];
+
+function roundQty(n) {
+  return Math.round(n * 100) / 100;
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ---------- Favoris ----------
+
+function getFavoritesMap() {
+  const rows = db.prepare("SELECT recipe_id, status FROM favorites").all();
+  const map = {};
+  for (const r of rows) map[r.recipe_id] = r.status;
+  return map;
+}
+
+// ---------- Recettes ----------
+
+function parseRecipeRow(row, favorites) {
   return {
     id: row.id,
     name: row.name,
@@ -48,12 +76,13 @@ function parseRecipeRow(row) {
     tags: JSON.parse(row.tags || "[]"),
     spices: JSON.parse(row.spices || "[]"),
     steps: JSON.parse(row.steps || "[]"),
+    favorite: favorites ? favorites[row.id] || null : null,
   };
 }
 
-function getRecipeSummary(id) {
+function getRecipeSummary(id, favorites) {
   const row = db.prepare("SELECT * FROM recipes WHERE id = ?").get(id);
-  return row ? parseRecipeRow(row) : null;
+  return row ? parseRecipeRow(row, favorites || getFavoritesMap()) : null;
 }
 
 function getRecipeDetail(id, nbPersonnes) {
@@ -72,9 +101,77 @@ function getRecipeDetail(id, nbPersonnes) {
   return recipe;
 }
 
-function roundQty(n) {
-  return Math.round(n * 100) / 100;
+// ---------- Résolution des options (défaut + reroll + exclusion des bannies) ----------
+
+function pickEligiblePool(mealType, day, excludeIds, favorites) {
+  const isWeekend = WEEKEND_DAYS.includes(day);
+  const rows = db.prepare("SELECT id, weekend_only FROM recipes WHERE meal_type = ?").all(mealType);
+  const excludeSet = new Set(excludeIds);
+  const eligible = rows
+    .filter((r) => (isWeekend ? true : !r.weekend_only))
+    .filter((r) => favorites[r.id] !== "banned")
+    .filter((r) => !excludeSet.has(r.id))
+    .map((r) => r.id);
+
+  // Petit biais en faveur des recettes "j'adore" : elles apparaissent deux fois dans le tirage.
+  const weighted = eligible.flatMap((id) => (favorites[id] === "loved" ? [id, id] : [id]));
+  const seen = new Set();
+  return shuffle(weighted).filter((id) => (seen.has(id) ? false : (seen.add(id), true)));
 }
+
+function resolveOptions(day, meal, { forceReroll = false } = {}) {
+  const favorites = getFavoritesMap();
+  const defaultIds = weekOptions[meal][day];
+
+  const overrideRow = forceReroll
+    ? null
+    : db.prepare("SELECT recipe_ids FROM current_options WHERE day = ? AND meal_type = ?").get(day, meal);
+
+  let baseIds = overrideRow ? JSON.parse(overrideRow.recipe_ids) : defaultIds;
+  let ids = baseIds.filter((id) => favorites[id] !== "banned");
+
+  if (forceReroll) {
+    // Une vraie roulette : on exclut aussi les options actuellement affichées.
+    const excludeIds = baseIds;
+    const pool = pickEligiblePool(meal, day, excludeIds, favorites);
+    ids = pool.slice(0, 3);
+    if (ids.length < 3) {
+      // Pool trop petit (ex. week-end) : on ré-autorise les anciennes options non bannies.
+      const fallback = baseIds.filter((id) => favorites[id] !== "banned" && !ids.includes(id));
+      ids = ids.concat(fallback).slice(0, 3);
+    }
+  } else if (ids.length < 3) {
+    const pool = pickEligiblePool(meal, day, ids, favorites);
+    ids = ids.concat(pool.slice(0, 3 - ids.length));
+  }
+
+  const changed = forceReroll || JSON.stringify(ids) !== JSON.stringify(baseIds);
+  if (changed) {
+    db.prepare(`
+      INSERT INTO current_options (day, meal_type, recipe_ids) VALUES (?, ?, ?)
+      ON CONFLICT(day, meal_type) DO UPDATE SET recipe_ids = excluded.recipe_ids
+    `).run(day, meal, JSON.stringify(ids));
+  }
+
+  return ids.map((id) => getRecipeSummary(id, favorites)).filter(Boolean);
+}
+
+// ---------- Réglages (rappels) ----------
+
+function getSetting(key, fallback) {
+  const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(key);
+  if (!row) return fallback;
+  try { return JSON.parse(row.value); } catch (e) { return fallback; }
+}
+
+function setSetting(key, value) {
+  db.prepare(`
+    INSERT INTO settings (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+  `).run(key, JSON.stringify(value));
+}
+
+const DEFAULT_REMINDER = { enabled: false, time: "17:00", mealType: "diner" };
 
 // ---------- API ----------
 
@@ -85,34 +182,23 @@ app.get("/api/meta", (req, res) => {
 app.get("/api/week", (req, res) => {
   const planRows = db.prepare("SELECT * FROM weekly_plan").all();
   const planByKey = {};
-  for (const row of planRows) {
-    planByKey[`${row.day}__${row.meal_type}`] = row;
-  }
-
-  const optionRows = db
-    .prepare("SELECT day, meal_type, recipe_id, position FROM day_meal_options ORDER BY position ASC")
-    .all();
-  const optionsByKey = {};
-  for (const row of optionRows) {
-    const key = `${row.day}__${row.meal_type}`;
-    if (!optionsByKey[key]) optionsByKey[key] = [];
-    optionsByKey[key].push(getRecipeSummary(row.recipe_id));
-  }
+  for (const row of planRows) planByKey[`${row.day}__${row.meal_type}`] = row;
 
   const week = DAYS.map((day) => ({
     day,
     label: DAY_LABELS[day],
     meals: MEALS.map((meal) => {
       const key = `${day}__${meal}`;
-      const plan = planByKey[key] || { recipe_id: null, nb_personnes: 2, portion_bonus: 0 };
+      const plan = planByKey[key] || { recipe_id: null, nb_personnes: 2, portion_bonus: 0, cancelled: 0 };
       return {
         mealType: meal,
         label: MEAL_LABELS[meal],
-        options: optionsByKey[key] || [],
+        options: resolveOptions(day, meal),
         selected: {
           recipeId: plan.recipe_id,
           nbPersonnes: plan.nb_personnes,
           portionBonus: !!plan.portion_bonus,
+          cancelled: !!plan.cancelled,
         },
       };
     }),
@@ -121,18 +207,25 @@ app.get("/api/week", (req, res) => {
   res.json({ week });
 });
 
+app.post("/api/options/:day/:meal/reroll", (req, res) => {
+  const { day, meal } = req.params;
+  if (!DAYS.includes(day) || !MEALS.includes(meal)) {
+    return res.status(400).json({ error: "Jour ou repas invalide." });
+  }
+  const options = resolveOptions(day, meal, { forceReroll: true });
+  res.json({ options });
+});
+
 app.put("/api/plan/:day/:meal", (req, res) => {
   const { day, meal } = req.params;
   if (!DAYS.includes(day) || !MEALS.includes(meal)) {
     return res.status(400).json({ error: "Jour ou repas invalide." });
   }
-  const { recipeId = null, nbPersonnes = 2, portionBonus = false } = req.body || {};
+  const { recipeId = null, nbPersonnes = 2, portionBonus = false, cancelled = false } = req.body || {};
 
   if (recipeId) {
-    const validOption = db
-      .prepare("SELECT 1 FROM day_meal_options WHERE day = ? AND meal_type = ? AND recipe_id = ?")
-      .get(day, meal, recipeId);
-    if (!validOption) {
+    const validIds = resolveOptions(day, meal).map((r) => r.id);
+    if (!validIds.includes(recipeId)) {
       return res.status(400).json({ error: "Cette recette n'est pas une option proposée pour ce repas." });
     }
   }
@@ -140,13 +233,14 @@ app.put("/api/plan/:day/:meal", (req, res) => {
   const nb = Math.max(1, Math.min(12, Number(nbPersonnes) || 1));
 
   db.prepare(`
-    INSERT INTO weekly_plan (day, meal_type, recipe_id, nb_personnes, portion_bonus)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO weekly_plan (day, meal_type, recipe_id, nb_personnes, portion_bonus, cancelled)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(day, meal_type) DO UPDATE SET
       recipe_id = excluded.recipe_id,
       nb_personnes = excluded.nb_personnes,
-      portion_bonus = excluded.portion_bonus
-  `).run(day, meal, recipeId, nb, portionBonus ? 1 : 0);
+      portion_bonus = excluded.portion_bonus,
+      cancelled = excluded.cancelled
+  `).run(day, meal, recipeId, nb, portionBonus ? 1 : 0, cancelled ? 1 : 0);
 
   res.json({ ok: true });
 });
@@ -158,10 +252,27 @@ app.get("/api/recipes/:id", (req, res) => {
   res.json(recipe);
 });
 
-app.get("/api/shopping-list", (req, res) => {
-  const planRows = db.prepare("SELECT * FROM weekly_plan WHERE recipe_id IS NOT NULL").all();
+app.patch("/api/recipes/:id/favorite", (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body || {};
+  const recipe = db.prepare("SELECT 1 FROM recipes WHERE id = ?").get(id);
+  if (!recipe) return res.status(404).json({ error: "Recette introuvable." });
 
-  const aggregate = new Map(); // key: name|unit|rayon -> qty
+  if (status === "loved" || status === "banned") {
+    db.prepare(`
+      INSERT INTO favorites (recipe_id, status) VALUES (?, ?)
+      ON CONFLICT(recipe_id) DO UPDATE SET status = excluded.status
+    `).run(id, status);
+  } else {
+    db.prepare("DELETE FROM favorites WHERE recipe_id = ?").run(id);
+  }
+  res.json({ ok: true, status: status === "loved" || status === "banned" ? status : null });
+});
+
+app.get("/api/shopping-list", (req, res) => {
+  const planRows = db.prepare("SELECT * FROM weekly_plan WHERE recipe_id IS NOT NULL AND cancelled = 0").all();
+
+  const aggregate = new Map();
   const usedRecipes = [];
 
   for (const plan of planRows) {
@@ -176,8 +287,7 @@ app.get("/api/shopping-list", (req, res) => {
 
     for (const ing of ingredientRows) {
       const key = `${ing.name}|${ing.unit}|${ing.rayon}`;
-      const qty = ing.qty_per_person * portions;
-      aggregate.set(key, (aggregate.get(key) || 0) + qty);
+      aggregate.set(key, (aggregate.get(key) || 0) + ing.qty_per_person * portions);
     }
   }
 
@@ -188,14 +298,80 @@ app.get("/api/shopping-list", (req, res) => {
     byRayon[rayon].push({ name, unit, qty: roundQty(qty) });
   }
 
-  const rayons = RAYON_ORDER.filter((r) => byRayon[r])
-    .map((rayon) => ({
-      rayon,
-      items: byRayon[rayon].sort((a, b) => a.name.localeCompare(b.name, "fr")),
-    }));
+  const rayons = RAYON_ORDER.filter((r) => byRayon[r]).map((rayon) => ({
+    rayon,
+    items: byRayon[rayon].sort((a, b) => a.name.localeCompare(b.name, "fr")),
+  }));
 
   res.json({ rayons, usedRecipes, isEmpty: planRows.length === 0 });
 });
+
+// ---------- Rappels Web Push ----------
+
+app.get("/api/push/vapid-public-key", (req, res) => {
+  res.json({ publicKey: vapidKeys.publicKey });
+});
+
+app.post("/api/push/subscribe", (req, res) => {
+  const sub = req.body;
+  if (!sub || !sub.endpoint) return res.status(400).json({ error: "Abonnement invalide." });
+  db.prepare(`
+    INSERT INTO push_subscriptions (endpoint, subscription_json, created_at) VALUES (?, ?, ?)
+    ON CONFLICT(endpoint) DO UPDATE SET subscription_json = excluded.subscription_json
+  `).run(sub.endpoint, JSON.stringify(sub), new Date().toISOString());
+  res.json({ ok: true });
+});
+
+app.post("/api/push/unsubscribe", (req, res) => {
+  const { endpoint } = req.body || {};
+  if (endpoint) db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").run(endpoint);
+  res.json({ ok: true });
+});
+
+app.get("/api/settings/reminder", (req, res) => {
+  res.json(getSetting("reminder", DEFAULT_REMINDER));
+});
+
+app.put("/api/settings/reminder", (req, res) => {
+  const { enabled = false, time = "17:00", mealType = "diner" } = req.body || {};
+  if (!MEALS.includes(mealType)) return res.status(400).json({ error: "Repas invalide." });
+  if (!/^\d{2}:\d{2}$/.test(time)) return res.status(400).json({ error: "Heure invalide (HH:MM)." });
+  const value = { enabled: !!enabled, time, mealType };
+  setSetting("reminder", value);
+  res.json(value);
+});
+
+// ---------- Boucle de rappel (vérifie chaque minute) ----------
+
+function checkReminder() {
+  const reminder = getSetting("reminder", DEFAULT_REMINDER);
+  if (!reminder.enabled) return;
+
+  const now = getParisNow();
+  const currentHHMM = `${now.hh}:${now.mm}`;
+  if (currentHHMM !== reminder.time) return;
+
+  const lastSent = getSetting("reminder_last_sent", null);
+  if (lastSent === now.dateStr) return;
+
+  const plan = db.prepare("SELECT * FROM weekly_plan WHERE day = ? AND meal_type = ?").get(now.dayKey, reminder.mealType);
+  const mealLabel = MEAL_LABELS[reminder.mealType];
+
+  let body;
+  if (plan && plan.recipe_id && !plan.cancelled) {
+    const recipe = db.prepare("SELECT name, prep_minutes FROM recipes WHERE id = ?").get(plan.recipe_id);
+    body = recipe ? `${mealLabel} de ce soir : ${recipe.name} (${recipe.prep_minutes} min)` : `Pense à ton ${mealLabel.toLowerCase()} !`;
+  } else if (plan && plan.cancelled) {
+    return; // repas annulé, pas de rappel
+  } else {
+    body = `Tu n'as pas encore choisi ton ${mealLabel.toLowerCase()} d'aujourd'hui !`;
+  }
+
+  sendToAll(db, { title: "Menu, s'il te plaît 🍽️", body, icon: "/icons/icon-192.png" });
+  setSetting("reminder_last_sent", now.dateStr);
+}
+
+setInterval(checkReminder, 60 * 1000);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 

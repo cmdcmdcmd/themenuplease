@@ -12,6 +12,7 @@
     "node": ">=22.5.0"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "web-push": "^3.6.7"
   }
 }

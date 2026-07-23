@@ -3,10 +3,13 @@
 
   const MEAL_ICON = { "petit-dej": "☀️", dejeuner: "🥗", diner: "🌙" };
   const DAY_COLORS = ["terracotta", "sun", "sage", "sky"];
+  const JS_DAY_TO_KEY = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 
   let meta = null;
-  let weekData = null; // { week: [...] }
-  let picker = { day: null, meal: null, recipeId: null, nbPersonnes: 2, portionBonus: false };
+  let weekData = null;
+  let picker = { day: null, meal: null, recipeId: null, nbPersonnes: 2, portionBonus: false, cancelled: false };
+  let currentRecipeSheetId = null;
+  let lastShoppingData = null;
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -28,6 +31,10 @@
     showToast._t = setTimeout(() => { toast.hidden = true; }, 1800);
   }
 
+  function todayKey() {
+    return JS_DAY_TO_KEY[new Date().getDay()];
+  }
+
   // ============ TABS ============
   function initTabs() {
     $$(".tab").forEach((tab) => {
@@ -42,16 +49,11 @@
     });
   }
 
-  // ============ WEEK VIEW ============
+  // ============ WEEK + TODAY VIEWS ============
   async function loadWeek() {
     weekData = await api("/api/week");
     renderWeek();
-  }
-
-  function findRecipeInOptions(day, mealType, recipeId) {
-    const dayObj = weekData.week.find((d) => d.day === day);
-    const mealObj = dayObj.meals.find((m) => m.mealType === mealType);
-    return mealObj.options.find((o) => o.id === recipeId) || null;
+    renderToday();
   }
 
   function renderWeek() {
@@ -67,18 +69,38 @@
       header.textContent = dayObj.label;
       block.appendChild(header);
 
-      dayObj.meals.forEach((meal) => {
-        block.appendChild(renderMealRow(dayObj, meal));
-      });
-
+      dayObj.meals.forEach((meal) => block.appendChild(renderMealRow(dayObj, meal)));
       container.appendChild(block);
     });
+  }
+
+  function renderToday() {
+    const key = todayKey();
+    const dayObj = weekData.week.find((d) => d.day === key);
+    const container = $("#today-list");
+    container.innerHTML = "";
+
+    if (!dayObj) return;
+
+    const block = document.createElement("div");
+    block.className = "day-block";
+    block.dataset.color = DAY_COLORS[weekData.week.indexOf(dayObj) % DAY_COLORS.length];
+
+    const header = document.createElement("div");
+    header.className = "day-header";
+    header.textContent = dayObj.label;
+    block.appendChild(header);
+
+    dayObj.meals.forEach((meal) => block.appendChild(renderMealRow(dayObj, meal)));
+    container.appendChild(block);
+
+    $("#today-subnote").textContent = `tes 3 repas de ${dayObj.label.toLowerCase()}, en un coup d'œil 👀`;
   }
 
   function renderMealRow(dayObj, meal) {
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "meal-row";
+    row.className = "meal-row" + (meal.selected.cancelled ? " is-cancelled" : "");
     row.dataset.day = dayObj.day;
     row.dataset.meal = meal.mealType;
 
@@ -108,16 +130,16 @@
     }
     info.appendChild(choice);
 
-    if (selectedRecipe) {
-      const metaRow = document.createElement("div");
-      metaRow.className = "meal-meta";
+    const metaRow = document.createElement("div");
+    metaRow.className = "meal-meta";
+    if (meal.selected.cancelled) {
+      metaRow.appendChild(pill("🚫 annulé", "bonus"));
+    } else if (selectedRecipe) {
       metaRow.appendChild(pill(`⏱ ${selectedRecipe.prepMinutes} min`));
       metaRow.appendChild(pill(`👥 ${meal.selected.nbPersonnes}`));
-      if (meal.selected.portionBonus) {
-        metaRow.appendChild(pill("🍱 +1 demain midi", "bonus"));
-      }
-      info.appendChild(metaRow);
+      if (meal.selected.portionBonus) metaRow.appendChild(pill("🍱 +1 demain midi", "bonus"));
     }
+    if (metaRow.children.length) info.appendChild(metaRow);
 
     row.appendChild(info);
 
@@ -151,6 +173,7 @@
       recipeId: meal.selected.recipeId,
       nbPersonnes: meal.selected.nbPersonnes || 2,
       portionBonus: !!meal.selected.portionBonus,
+      cancelled: !!meal.selected.cancelled,
     };
 
     $("#picker-day-meal").textContent = `${dayObj.label} · ${meal.label}`;
@@ -160,6 +183,7 @@
     const bonusRow = $("#bonus-row");
     bonusRow.hidden = meal.mealType !== "diner";
     $("#bonus-toggle").checked = picker.portionBonus;
+    $("#cancel-toggle").checked = picker.cancelled;
 
     renderPickerOptions(meal.options);
     updateSeeRecipeButton();
@@ -175,6 +199,13 @@
       card.type = "button";
       card.className = "option-card" + (opt.id === picker.recipeId ? " selected" : "");
       card.dataset.id = opt.id;
+
+      if (opt.favorite === "loved") {
+        const badge = document.createElement("span");
+        badge.className = "fav-badge";
+        badge.textContent = "❤️";
+        card.appendChild(badge);
+      }
 
       const name = document.createElement("div");
       name.className = "opt-name";
@@ -194,6 +225,8 @@
 
   async function selectOption(recipeId) {
     picker.recipeId = recipeId;
+    picker.cancelled = false;
+    $("#cancel-toggle").checked = false;
     renderPickerOptions(findMealOptions());
     updateSeeRecipeButton();
     await savePlan();
@@ -217,10 +250,21 @@
         recipeId: picker.recipeId,
         nbPersonnes: picker.nbPersonnes,
         portionBonus: picker.portionBonus,
+        cancelled: picker.cancelled,
       }),
     });
     await loadWeek();
-    showToast("Repas enregistré ✓");
+    showToast(picker.cancelled ? "Repas annulé ✓" : "Repas enregistré ✓");
+  }
+
+  async function handleReroll() {
+    const res = await api(`/api/options/${picker.day}/${picker.meal}/reroll`, { method: "POST" });
+    // Met à jour le cache local des options pour ce créneau, puis re-render la picker sans la fermer.
+    const dayObj = weekData.week.find((d) => d.day === picker.day);
+    const mealObj = dayObj.meals.find((m) => m.mealType === picker.meal);
+    mealObj.options = res.options;
+    renderPickerOptions(res.options);
+    showToast("Nouvelles options 🔁");
   }
 
   function initPickerControls() {
@@ -230,9 +274,14 @@
       picker.portionBonus = e.target.checked;
       if (picker.recipeId) await savePlan();
     });
+    $("#cancel-toggle").addEventListener("change", async (e) => {
+      picker.cancelled = e.target.checked;
+      await savePlan();
+    });
     $("#btn-see-recipe").addEventListener("click", () => {
       if (picker.recipeId) openRecipeSheet(picker.recipeId, picker.nbPersonnes);
     });
+    $("#btn-reroll").addEventListener("click", handleReroll);
   }
 
   let debounceTimer = null;
@@ -248,8 +297,11 @@
   // ============ RECIPE SHEET ============
   async function openRecipeSheet(recipeId, nbPersonnes) {
     const recipe = await api(`/api/recipes/${recipeId}?personnes=${nbPersonnes}`);
+    currentRecipeSheetId = recipeId;
+
     $("#recipe-eyebrow").textContent = `${meta.mealLabels[recipe.mealType]} · ${recipe.prepMinutes} min · ${nbPersonnes} pers.`;
     $("#recipe-title").textContent = recipe.name;
+    updateFavButtons(recipe.favorite);
 
     const content = $("#recipe-content");
     content.innerHTML = "";
@@ -311,6 +363,34 @@
     $("#sheet-backdrop-recipe").hidden = false;
   }
 
+  function updateFavButtons(status) {
+    $("#btn-love").classList.toggle("active", status === "loved");
+    $("#btn-ban").classList.toggle("active", status === "banned");
+  }
+
+  async function setFavorite(status) {
+    if (!currentRecipeSheetId) return;
+    const res = await api(`/api/recipes/${currentRecipeSheetId}/favorite`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    updateFavButtons(res.status);
+    await loadWeek();
+    showToast(res.status === "loved" ? "Ajouté aux favoris ❤️" : res.status === "banned" ? "Ne sera plus proposé 🚫" : "Retiré des favoris");
+  }
+
+  function initFavoriteControls() {
+    $("#btn-love").addEventListener("click", () => {
+      const isActive = $("#btn-love").classList.contains("active");
+      setFavorite(isActive ? null : "loved");
+    });
+    $("#btn-ban").addEventListener("click", () => {
+      const isActive = $("#btn-ban").classList.contains("active");
+      setFavorite(isActive ? null : "banned");
+    });
+  }
+
   function formatQty(n) {
     return Number.isInteger(n) ? n : n.toFixed(2).replace(/\.?0+$/, "");
   }
@@ -322,6 +402,7 @@
 
   async function loadShoppingList() {
     const data = await api("/api/shopping-list");
+    lastShoppingData = data;
     renderShoppingList(data);
   }
 
@@ -336,11 +417,10 @@
           <p class="hand-note">pas encore de plan cette semaine —<br/>va choisir tes repas dans l'onglet "Ma semaine" !</p>
         </div>`;
       $("#shopping-progress").hidden = true;
+      $("#btn-share-list").hidden = true;
       return;
     }
-
-    let total = 0;
-    let checked = 0;
+    $("#btn-share-list").hidden = false;
 
     data.rayons.forEach((rayonGroup) => {
       const block = document.createElement("div");
@@ -355,10 +435,8 @@
       itemsWrap.className = "rayon-items";
 
       rayonGroup.items.forEach((item) => {
-        total++;
         const key = checkKey(item.name, item.unit);
         const isChecked = localStorage.getItem(key) === "1";
-        if (isChecked) checked++;
 
         const row = document.createElement("div");
         row.className = "item-row" + (isChecked ? " checked" : "");
@@ -394,12 +472,114 @@
       : `${checked}/${total} cochés`;
   }
 
+  function buildShareText() {
+    if (!lastShoppingData || lastShoppingData.isEmpty) return "";
+    const lines = ["🍽️ Liste de courses — Menu, s'il te plaît", ""];
+    lastShoppingData.rayons.forEach((group) => {
+      lines.push(`— ${group.rayon} —`);
+      group.items.forEach((item) => {
+        const checked = localStorage.getItem(checkKey(item.name, item.unit)) === "1";
+        lines.push(`${checked ? "☑" : "☐"} ${item.name} — ${formatQty(item.qty)} ${item.unit}`);
+      });
+      lines.push("");
+    });
+    return lines.join("\n").trim();
+  }
+
+  async function shareShoppingList() {
+    const text = buildShareText();
+    if (!text) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Liste de courses", text });
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Liste copiée dans le presse-papier 📋");
+    } catch (e) {
+      showToast("Impossible de copier la liste 😕");
+    }
+  }
+
+  // ============ RÉGLAGES / RAPPELS ============
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  }
+
+  async function openSettings() {
+    const reminder = await api("/api/settings/reminder");
+    $("#reminder-enabled").checked = reminder.enabled;
+    $("#reminder-time").value = reminder.time;
+    $("#reminder-meal").value = reminder.mealType;
+    $("#sheet-backdrop-settings").hidden = false;
+  }
+
+  async function saveReminder() {
+    const enabled = $("#reminder-enabled").checked;
+    const time = $("#reminder-time").value || "17:00";
+    const mealType = $("#reminder-meal").value;
+
+    if (enabled) {
+      if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        showToast("Les notifications ne sont pas supportées sur ce navigateur.");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        showToast("Autorisation refusée — impossible d'activer les rappels.");
+        return;
+      }
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const { publicKey } = await api("/api/push/vapid-public-key");
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey),
+          });
+        }
+        await api("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sub),
+        });
+      } catch (e) {
+        console.error(e);
+        showToast("Impossible d'activer les rappels sur cet appareil.");
+        return;
+      }
+    }
+
+    await api("/api/settings/reminder", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled, time, mealType }),
+    });
+    $("#sheet-backdrop-settings").hidden = true;
+    showToast(enabled ? "Rappel activé ✓" : "Rappel désactivé");
+  }
+
+  function initSettings() {
+    $("#btn-settings").addEventListener("click", openSettings);
+    $("#btn-save-reminder").addEventListener("click", saveReminder);
+  }
+
   // ============ SHEET CLOSE HANDLERS ============
   function initSheetClosers() {
     $("[data-close-sheet]").addEventListener("click", () => { $("#sheet-backdrop").hidden = true; });
     $("[data-close-recipe]").addEventListener("click", () => { $("#sheet-backdrop-recipe").hidden = true; });
-    $("#sheet-backdrop").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
-    $("#sheet-backdrop-recipe").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
+    $("[data-close-settings]").addEventListener("click", () => { $("#sheet-backdrop-settings").hidden = true; });
+    [$("#sheet-backdrop"), $("#sheet-backdrop-recipe"), $("#sheet-backdrop-settings")].forEach((backdrop) => {
+      backdrop.addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
+    });
   }
 
   // ============ INIT ============
@@ -407,10 +587,13 @@
     meta = await api("/api/meta");
     initTabs();
     initPickerControls();
+    initFavoriteControls();
+    initSettings();
     initSheetClosers();
     await loadWeek();
 
     $("#btn-refresh-list").addEventListener("click", loadShoppingList);
+    $("#btn-share-list").addEventListener("click", shareShoppingList);
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});

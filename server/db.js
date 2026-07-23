@@ -47,9 +47,44 @@ db.exec(`
     recipe_id TEXT REFERENCES recipes(id),
     nb_personnes INTEGER NOT NULL DEFAULT 2,
     portion_bonus INTEGER NOT NULL DEFAULT 0,
+    cancelled INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (day, meal_type)
   );
+
+  CREATE TABLE IF NOT EXISTS favorites (
+    recipe_id TEXT PRIMARY KEY REFERENCES recipes(id),
+    status TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS current_options (
+    day TEXT NOT NULL,
+    meal_type TEXT NOT NULL,
+    recipe_ids TEXT NOT NULL,
+    PRIMARY KEY (day, meal_type)
+  );
+
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    endpoint TEXT UNIQUE NOT NULL,
+    subscription_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
 `);
+
+function migrate() {
+  const columns = db.prepare("PRAGMA table_info(weekly_plan)").all();
+  const hasCancelled = columns.some((c) => c.name === "cancelled");
+  if (!hasCancelled) {
+    db.exec("ALTER TABLE weekly_plan ADD COLUMN cancelled INTEGER NOT NULL DEFAULT 0");
+  }
+}
+
+migrate();
 
 function seedIfEmpty() {
   const { count } = db.prepare("SELECT COUNT(*) AS count FROM recipes").get();

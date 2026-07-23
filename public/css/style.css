@@ -71,8 +71,14 @@ ul{ margin:0; padding:0; list-style:none; }
   padding:22px 20px 26px;
   border-radius:0 0 var(--radius-xl) var(--radius-xl);
   box-shadow: var(--shadow-float);
+  display:flex; align-items:flex-start; gap:10px;
 }
-.topbar-title{ display:flex; align-items:center; gap:14px; }
+.topbar-title{ display:flex; align-items:center; gap:14px; flex:1; min-width:0; }
+.settings-btn{
+  width:40px; height:40px; border-radius:50%; flex-shrink:0;
+  border:2px solid rgba(255,255,255,.6); background:rgba(255,255,255,.15);
+  font-size:1.15rem; cursor:pointer; color:var(--white);
+}
 .topbar h1{ color:var(--white); font-size:1.5rem; font-weight:700; letter-spacing:.2px; }
 .topbar .tagline{
   font-family:var(--font-hand); font-weight:700; font-size:1.15rem;
@@ -266,6 +272,43 @@ ul{ margin:0; padding:0; list-style:none; }
   background:var(--white); border:2.5px solid var(--ink); border-radius:var(--radius-md); padding:10px 14px;
 }
 .bonus-row input{ width:22px; height:22px; accent-color:var(--sun-dark); flex-shrink:0; }
+#cancel-row{ margin-top:10px; }
+#cancel-row input{ accent-color:var(--terracotta-dark); }
+
+.btn-reroll{ margin-top:2px; font-size:.88rem; padding:10px 16px; }
+
+/* ============ FAVORIS ============ */
+.favorite-row{ display:flex; gap:10px; margin-bottom:14px; }
+.fav-btn{
+  flex:1; border:2.5px solid var(--ink); border-radius:var(--radius-pill);
+  background:var(--white); padding:9px 10px; font-weight:600; font-size:.85rem; cursor:pointer;
+  font-family:var(--font-body);
+}
+.fav-btn#btn-love.active{ background:var(--terracotta); color:var(--white); }
+.fav-btn#btn-ban.active{ background:var(--ink); color:var(--white); }
+
+.fav-badge{
+  position:absolute; top:-8px; right:10px; font-size:1.1rem;
+  background:var(--white); border:2px solid var(--ink); border-radius:50%;
+  width:26px; height:26px; display:flex; align-items:center; justify-content:center;
+}
+.option-card{ position:relative; }
+
+/* ============ REPAS ANNULÉ ============ */
+.meal-row.is-cancelled .meal-choice{ text-decoration:line-through; color:var(--ink-soft); }
+.meal-row.is-cancelled .meal-icon{ opacity:.45; }
+.meal-row.is-cancelled{ opacity:.7; }
+
+/* ============ SETTINGS SHEET ============ */
+.settings-field{ margin-top:14px; }
+.settings-field label{ display:block; font-weight:600; margin-bottom:6px; }
+.settings-field input, .settings-field select{
+  width:100%; border:2.5px solid var(--ink); border-radius:var(--radius-md);
+  padding:10px 12px; font-family:var(--font-body); font-weight:600; font-size:1rem;
+  background:var(--white); color:var(--ink);
+}
+.settings-note{ margin-top:14px; font-size:1.05rem; }
+#btn-save-reminder{ margin-top:18px; }
 
 /* ============ RECIPE SHEET ============ */
 .recipe-meta-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
