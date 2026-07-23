@@ -1,0 +1,17 @@
+{
+  "name": "themenuplease",
+  "version": "1.0.0",
+  "description": "Planificateur de repas TDAH-friendly : plan de la semaine, liste de courses, recettes courtes.",
+  "private": true,
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

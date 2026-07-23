@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Menu, s'il te plaît 🍽️</title>
+<meta name="description" content="Ton assistant repas anti-galère : plan de la semaine, liste de courses, recettes courtes." />
+<meta name="theme-color" content="#E8734A" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="icon" href="/icons/favicon-32.png" sizes="32x32" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="topbar-title">
+      <span class="logo-bowl" aria-hidden="true"></span>
+      <div>
+        <h1>Menu, s'il te plaît</h1>
+        <p class="tagline">ta semaine, sans prise de tête</p>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- ===== VUE SEMAINE ===== -->
+    <section id="view-week" class="view" aria-labelledby="week-heading">
+      <div class="view-intro">
+        <h2 id="week-heading">Ta semaine</h2>
+        <p class="hand-note">choisis un plat par repas, on s'occupe du reste ✏️</p>
+      </div>
+      <div id="week-list" class="week-list"><!-- rempli en JS --></div>
+    </section>
+
+    <!-- ===== VUE COURSES ===== -->
+    <section id="view-shopping" class="view" hidden aria-labelledby="shopping-heading">
+      <div class="view-intro">
+        <h2 id="shopping-heading">Les courses</h2>
+        <p class="hand-note">tout ce qu'il te faut pour la semaine 🛒</p>
+      </div>
+      <div class="shopping-toolbar">
+        <button id="btn-refresh-list" class="btn btn-primary" type="button">🔄 Actualiser la liste</button>
+        <div id="shopping-progress" class="shopping-progress" hidden></div>
+      </div>
+      <div id="shopping-list" class="shopping-list"><!-- rempli en JS --></div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar" aria-label="Navigation principale">
+    <button class="tab active" data-view="view-week" type="button">
+      <span class="tab-icon" aria-hidden="true">🗓️</span>
+      <span>Ma semaine</span>
+    </button>
+    <button class="tab" data-view="view-shopping" type="button">
+      <span class="tab-icon" aria-hidden="true">🛒</span>
+      <span>Courses</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ===== FEUILLE : choisir un repas ===== -->
+<div id="sheet-backdrop" class="sheet-backdrop" hidden>
+  <div id="sheet-picker" class="sheet" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <p class="sheet-eyebrow" id="picker-day-meal"></p>
+      <h3 id="picker-title">Choisis ton repas</h3>
+      <button class="sheet-close" type="button" data-close-sheet aria-label="Fermer">✕</button>
+    </div>
+    <div id="picker-options" class="picker-options"><!-- rempli en JS --></div>
+
+    <div class="picker-settings">
+      <div class="stepper-row">
+        <span class="stepper-label">👥 Nombre de personnes</span>
+        <div class="stepper">
+          <button type="button" id="stepper-minus" aria-label="Moins de personnes">−</button>
+          <span id="stepper-value">2</span>
+          <button type="button" id="stepper-plus" aria-label="Plus de personnes">+</button>
+        </div>
+      </div>
+      <label class="bonus-row" id="bonus-row" hidden>
+        <input type="checkbox" id="bonus-toggle" />
+        <span>🍱 + 1 part pour <strong>demain midi</strong></span>
+      </label>
+    </div>
+
+    <button id="btn-see-recipe" class="btn btn-ghost" type="button" hidden>📖 Voir la recette</button>
+  </div>
+</div>
+
+<!-- ===== FEUILLE : détail recette ===== -->
+<div id="sheet-backdrop-recipe" class="sheet-backdrop" hidden>
+  <div id="sheet-recipe" class="sheet" role="dialog" aria-modal="true" aria-labelledby="recipe-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <p class="sheet-eyebrow" id="recipe-eyebrow"></p>
+      <h3 id="recipe-title"></h3>
+      <button class="sheet-close" type="button" data-close-recipe aria-label="Fermer">✕</button>
+    </div>
+    <div id="recipe-content" class="recipe-content"><!-- rempli en JS --></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
