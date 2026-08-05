@@ -309,6 +309,12 @@ ul{ margin:0; padding:0; list-style:none; }
 }
 .settings-note{ margin-top:14px; font-size:1.05rem; }
 #btn-save-reminder{ margin-top:18px; }
+#btn-save-tisane{ margin-top:18px; }
+.settings-divider{ border-top:2px dashed #E7D9C2; margin:24px 0 16px; }
+.settings-subtitle{
+  font-family:var(--font-hand); font-size:1.3rem; font-weight:700;
+  color:var(--sky-dark); margin-bottom:12px;
+}
 
 /* ============ RECIPE SHEET ============ */
 .recipe-meta-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
@@ -338,6 +344,13 @@ ul{ margin:0; padding:0; list-style:none; }
   display:flex; align-items:center; justify-content:center; font-size:.85rem;
 }
 .spice-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+
+.evening-tip{
+  margin-top:20px; padding:14px 16px; border-radius:var(--radius-md);
+  background:var(--cream); border:2px dashed var(--sage-dark);
+  font-size:.92rem; line-height:1.5; color:var(--ink-soft);
+}
+.evening-tip strong{ color:var(--ink); }
 
 /* ============ TOAST ============ */
 .toast{

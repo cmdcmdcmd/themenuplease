@@ -3,8 +3,11 @@
 Planificateur de repas TDAH-friendly : tu choisis un plat parmi 3 options pour
 chaque repas de la semaine (petit-déj, déjeuner, dîner), tu règles le nombre
 de personnes, et l'appli génère la liste de courses groupée par rayon.
-Les recettes suivent le rééquilibrage "bol Maju" (1/2 légumes, 1/4 protéines,
-1/4 féculents) et prennent ≤ 30 min en semaine (un peu plus le week-end).
+Les recettes suivent le rééquilibrage "bol Maju" — 1/2 légumes, 1/4 protéines,
+1/4 féculents au déjeuner ; au dîner le curseur penche vers 1/2 légumes, 35%
+protéines maigres, 15% glucides complets (assiette copieuse mais légère pour
+le soir, protéines maigres uniquement, féculents complets en petite portion).
+Les recettes prennent ≤ 30 min en semaine (un peu plus le week-end).
 
 C'est une PWA installable (utilisable hors-ligne pour l'interface), avec un
 petit backend Node/Express et une base SQLite embarquée (module natif
@@ -54,6 +57,11 @@ modification (`node --watch`).
   à choisir si rien n'est encore prévu). Fonctionne via Web Push, y compris
   appli fermée — nécessite d'autoriser les notifications au premier réglage,
   et **HTTPS en production** (voir plus bas).
+- **Rituel du soir** (même feuille de réglages) : second rappel indépendant,
+  "rituel tisane" — une tisane sans sucre ~1h après le dîner, pour calmer le
+  grignotage de fin de soirée. Chaque fiche recette de dîner affiche aussi un
+  encart "dessert de sécurité" (fromage blanc 0%/skyr + baies) en cas de faim
+  résiduelle.
 - **Partager la liste** (onglet Courses) : utilise le partage natif du
   téléphone si disponible, sinon copie une version texte (avec cases ☐/☑)
   dans le presse-papier.

@@ -1,6 +1,9 @@
 // Pool de recettes réutilisées sur la semaine (3 options proposées par repas/jour).
-// ratio: déclinaison du "bol Maju" — 1/2 légumes, 1/4 protéines, 1/4 féculents pour
-// déjeuner/dîner ; au petit-déj le ratio est adapté (protéines + fibres + bon gras).
+// ratio: déclinaison du "bol Maju" — au déjeuner 1/2 légumes, 1/4 protéines, 1/4
+// féculents ; au dîner on pousse le curseur vers 1/2 légumes, 35% protéines
+// maigres, 15% glucides complets (assiette copieuse mais légère pour le soir,
+// cf. recommandations nutrition du soir) ; au petit-déj le ratio est adapté
+// (protéines + fibres + bon gras).
 
 const RAYONS = {
   FL: "Fruits & légumes",
@@ -386,7 +389,7 @@ const recipes = [
     mealType: "diner",
     prepMinutes: 20,
     weekendOnly: false,
-    ratio: "1/2 légumes • 1/4 protéines • 1/4 féculents",
+    ratio: "1/2 légumes • 35% protéines maigres • 15% glucides complets",
     tags: [],
     spices: ["paprika", "ail"],
     steps: [
@@ -395,9 +398,9 @@ const recipes = [
       "Ajouter les poivrons émincés, cuire 6-8 min, servir sur le riz.",
     ],
     ingredients: [
-      ing("Escalope de dinde", RAYONS.VPO, 120, "g"),
-      ing("Poivron", RAYONS.FL, 150, "g"),
-      ing("Riz complet", RAYONS.EPI, 50, "g"),
+      ing("Escalope de dinde", RAYONS.VPO, 140, "g"),
+      ing("Poivron", RAYONS.FL, 170, "g"),
+      ing("Riz complet", RAYONS.EPI, 35, "g"),
       ing("Ail", RAYONS.FL, 1, "gousse"),
       ing("Paprika", RAYONS.EPICES, 1, "càc"),
     ],
@@ -408,21 +411,21 @@ const recipes = [
     mealType: "diner",
     prepMinutes: 20,
     weekendOnly: false,
-    ratio: "1/2 légumes • 1/4 protéines végétales • 1/4 féculents",
+    ratio: "1/2 légumes • 35% protéines végétales • 15% glucides complets",
     tags: ["fer-magnesium"],
     spices: ["cumin", "ail"],
     steps: [
       "Faire revenir oignon, ail et cumin.",
       "Ajouter carotte en rondelles, lentilles corail et bouillon, cuire 15 min.",
-      "Mixer grossièrement ou servir tel quel avec du pain complet.",
+      "Mixer grossièrement ou servir tel quel avec une demi-tranche de pain complet.",
     ],
     ingredients: [
-      ing("Lentilles corail", RAYONS.EPI, 60, "g"),
-      ing("Carotte", RAYONS.FL, 150, "g"),
+      ing("Lentilles corail", RAYONS.EPI, 80, "g"),
+      ing("Carotte", RAYONS.FL, 170, "g"),
       ing("Oignon", RAYONS.FL, 0.5, "unité"),
       ing("Ail", RAYONS.FL, 1, "gousse"),
       ing("Cumin", RAYONS.EPICES, 1, "càc"),
-      ing("Pain complet", RAYONS.BOUL, 1, "tranche"),
+      ing("Pain complet", RAYONS.BOUL, 0.5, "tranche"),
     ],
   },
   {
@@ -431,7 +434,7 @@ const recipes = [
     mealType: "diner",
     prepMinutes: 25,
     weekendOnly: false,
-    ratio: "1/2 légumes • 1/4 protéines • 1/4 féculents",
+    ratio: "1/2 légumes • 35% protéines maigres • 15% glucides complets",
     tags: ["fer-magnesium"],
     spices: ["muscade", "poivre"],
     steps: [
@@ -440,9 +443,9 @@ const recipes = [
       "Pocher les œufs 3 min, dresser le tout ensemble.",
     ],
     ingredients: [
-      ing("Œufs", RAYONS.VPO, 2, "unité"),
-      ing("Épinards frais", RAYONS.FL, 120, "g"),
-      ing("Patate douce", RAYONS.FL, 150, "g"),
+      ing("Œufs", RAYONS.VPO, 3, "unité"),
+      ing("Épinards frais", RAYONS.FL, 140, "g"),
+      ing("Patate douce", RAYONS.FL, 90, "g"),
       ing("Muscade", RAYONS.EPICES, 1, "pincée"),
     ],
   },
@@ -452,7 +455,7 @@ const recipes = [
     mealType: "diner",
     prepMinutes: 20,
     weekendOnly: false,
-    ratio: "1/2 légumes • 1/4 protéines • 1/4 féculents",
+    ratio: "1/2 légumes • 35% protéines maigres • 15% glucides complets",
     tags: [],
     spices: ["gingembre", "sésame"],
     steps: [
@@ -461,9 +464,9 @@ const recipes = [
       "Mélanger aux nouilles, sauce soja et graines de sésame.",
     ],
     ingredients: [
-      ing("Blanc de poulet", RAYONS.VPO, 120, "g"),
-      ing("Brocoli", RAYONS.FL, 150, "g"),
-      ing("Nouilles asiatiques", RAYONS.EPI, 70, "g"),
+      ing("Blanc de poulet", RAYONS.VPO, 140, "g"),
+      ing("Brocoli", RAYONS.FL, 170, "g"),
+      ing("Nouilles asiatiques", RAYONS.EPI, 45, "g"),
       ing("Gingembre frais", RAYONS.EPICES, 1, "càc"),
       ing("Graines de sésame", RAYONS.EPICES, 1, "càc"),
       ing("Sauce soja", RAYONS.EPI, 1, "càs"),
@@ -475,7 +478,7 @@ const recipes = [
     mealType: "diner",
     prepMinutes: 22,
     weekendOnly: false,
-    ratio: "1/2 légumes • 1/4 protéines • 1/4 féculents",
+    ratio: "1/2 légumes • 35% protéines maigres • 15% glucides complets",
     tags: ["omega-3"],
     spices: ["aneth"],
     steps: [
@@ -484,9 +487,9 @@ const recipes = [
       "Écraser grossièrement le brocoli, dresser avec aneth et citron.",
     ],
     ingredients: [
-      ing("Filet de cabillaud", RAYONS.VPO, 130, "g"),
-      ing("Brocoli", RAYONS.FL, 150, "g"),
-      ing("Quinoa", RAYONS.EPI, 50, "g"),
+      ing("Filet de cabillaud", RAYONS.VPO, 150, "g"),
+      ing("Brocoli", RAYONS.FL, 170, "g"),
+      ing("Quinoa", RAYONS.EPI, 35, "g"),
       ing("Citron", RAYONS.FL, 0.25, "unité"),
       ing("Aneth", RAYONS.EPICES, 1, "pincée"),
     ],
@@ -497,7 +500,7 @@ const recipes = [
     mealType: "diner",
     prepMinutes: 25,
     weekendOnly: false,
-    ratio: "1/2 légumes • 1/4 protéines végétales • 1/4 féculents",
+    ratio: "1/2 légumes • 35% protéines végétales • 15% glucides complets",
     tags: ["fer-magnesium"],
     spices: ["cumin", "paprika fumé", "piment"],
     steps: [
@@ -506,10 +509,10 @@ const recipes = [
       "Servir avec riz complet.",
     ],
     ingredients: [
-      ing("Haricots rouges (boîte)", RAYONS.EPI, 150, "g"),
+      ing("Haricots rouges (boîte)", RAYONS.EPI, 170, "g"),
       ing("Maïs (boîte)", RAYONS.EPI, 80, "g"),
       ing("Tomates concassées (boîte)", RAYONS.EPI, 200, "g"),
-      ing("Riz complet", RAYONS.EPI, 50, "g"),
+      ing("Riz complet", RAYONS.EPI, 30, "g"),
       ing("Oignon", RAYONS.FL, 0.5, "unité"),
       ing("Ail", RAYONS.FL, 1, "gousse"),
       ing("Cumin", RAYONS.EPICES, 1, "càc"),
@@ -523,7 +526,7 @@ const recipes = [
     mealType: "diner",
     prepMinutes: 18,
     weekendOnly: false,
-    ratio: "1/2 légumes • 1/4 protéines • 1/4 féculents",
+    ratio: "1/2 légumes • 35% protéines maigres • 15% glucides complets",
     tags: ["omega-3"],
     spices: ["ail", "persil", "piment doux"],
     steps: [
@@ -532,9 +535,9 @@ const recipes = [
       "Ajouter les crevettes, ail et piment doux, cuire 3-4 min, parsemer de persil.",
     ],
     ingredients: [
-      ing("Crevettes décortiquées", RAYONS.VPO, 120, "g"),
-      ing("Courgette", RAYONS.FL, 150, "g"),
-      ing("Riz complet", RAYONS.EPI, 50, "g"),
+      ing("Crevettes décortiquées", RAYONS.VPO, 140, "g"),
+      ing("Courgette", RAYONS.FL, 170, "g"),
+      ing("Riz complet", RAYONS.EPI, 30, "g"),
       ing("Ail", RAYONS.FL, 2, "gousse"),
       ing("Persil frais", RAYONS.FL, 1, "brin"),
       ing("Piment doux", RAYONS.EPICES, 1, "pincée"),
@@ -546,7 +549,7 @@ const recipes = [
     mealType: "diner",
     prepMinutes: 40,
     weekendOnly: true,
-    ratio: "1/2 légumes • 1/4 protéines • 1/4 féculents",
+    ratio: "1/2 légumes • 35% protéines maigres • 15% glucides complets",
     tags: ["omega-3"],
     spices: ["aneth", "persil", "citron"],
     steps: [
@@ -555,10 +558,10 @@ const recipes = [
       "Servir avec riz complet.",
     ],
     ingredients: [
-      ing("Pavé de saumon", RAYONS.VPO, 130, "g"),
-      ing("Courgette", RAYONS.FL, 100, "g"),
-      ing("Carotte", RAYONS.FL, 100, "g"),
-      ing("Riz complet", RAYONS.EPI, 60, "g"),
+      ing("Pavé de saumon", RAYONS.VPO, 150, "g"),
+      ing("Courgette", RAYONS.FL, 110, "g"),
+      ing("Carotte", RAYONS.FL, 110, "g"),
+      ing("Riz complet", RAYONS.EPI, 35, "g"),
       ing("Citron", RAYONS.FL, 0.25, "unité"),
       ing("Aneth", RAYONS.EPICES, 1, "pincée"),
       ing("Persil frais", RAYONS.FL, 1, "brin"),
@@ -570,7 +573,7 @@ const recipes = [
     mealType: "diner",
     prepMinutes: 45,
     weekendOnly: true,
-    ratio: "1/2 légumes • 1/4 protéines • 1/4 féculents",
+    ratio: "1/2 légumes • 35% protéines maigres • 15% glucides complets",
     tags: ["fer-magnesium"],
     spices: ["cumin", "paprika fumé", "piment"],
     steps: [
@@ -579,10 +582,10 @@ const recipes = [
       "Servir avec riz complet et avocat en dés — idéal à préparer en double pour le lendemain midi.",
     ],
     ingredients: [
-      ing("Bœuf haché 5%", RAYONS.VPO, 120, "g"),
-      ing("Haricots rouges (boîte)", RAYONS.EPI, 150, "g"),
+      ing("Bœuf haché 5%", RAYONS.VPO, 140, "g"),
+      ing("Haricots rouges (boîte)", RAYONS.EPI, 160, "g"),
       ing("Tomates concassées (boîte)", RAYONS.EPI, 200, "g"),
-      ing("Riz complet", RAYONS.EPI, 50, "g"),
+      ing("Riz complet", RAYONS.EPI, 30, "g"),
       ing("Avocat", RAYONS.FL, 0.5, "unité"),
       ing("Oignon", RAYONS.FL, 0.5, "unité"),
       ing("Ail", RAYONS.FL, 1, "gousse"),

@@ -307,12 +307,14 @@
     content.innerHTML = "";
 
     if (recipe.mealType !== "petit-dej") {
+      const proteinPct = recipe.mealType === "diner" ? 35 : 25;
+      const carbPct = recipe.mealType === "diner" ? 15 : 25;
       const bar = document.createElement("div");
       bar.className = "ratio-bar";
       bar.innerHTML = `
         <span style="width:50%;background:var(--sage)"></span>
-        <span style="width:25%;background:var(--terracotta)"></span>
-        <span style="width:25%;background:var(--sun)"></span>`;
+        <span style="width:${proteinPct}%;background:var(--terracotta)"></span>
+        <span style="width:${carbPct}%;background:var(--sun)"></span>`;
       content.appendChild(bar);
       const legend = document.createElement("div");
       legend.className = "ratio-legend";
@@ -359,6 +361,13 @@
       stepsList.appendChild(li);
     });
     content.appendChild(stepsList);
+
+    if (recipe.mealType === "diner") {
+      const tip = document.createElement("div");
+      tip.className = "evening-tip";
+      tip.innerHTML = "🍓 <strong>Encore faim ?</strong> Un bol de fromage blanc 0% (ou skyr) avec une poignée de baies — rassasiant, sans culpabiliser. Et une tisane sans sucre 1h après le dîner aide à calmer le grignotage du soir.";
+      content.appendChild(tip);
+    }
 
     $("#sheet-backdrop-recipe").hidden = false;
   }
@@ -514,11 +523,40 @@
   }
 
   async function openSettings() {
-    const reminder = await api("/api/settings/reminder");
+    const [reminder, tisane] = await Promise.all([
+      api("/api/settings/reminder"),
+      api("/api/settings/tisane"),
+    ]);
     $("#reminder-enabled").checked = reminder.enabled;
     $("#reminder-time").value = reminder.time;
     $("#reminder-meal").value = reminder.mealType;
+    $("#tisane-enabled").checked = tisane.enabled;
+    $("#tisane-time").value = tisane.time;
     $("#sheet-backdrop-settings").hidden = false;
+  }
+
+  async function ensurePushSubscription() {
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      throw new Error("Les notifications ne sont pas supportées sur ce navigateur.");
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      throw new Error("Autorisation refusée — impossible d'activer les rappels.");
+    }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const { publicKey } = await api("/api/push/vapid-public-key");
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+    await api("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sub),
+    });
   }
 
   async function saveReminder() {
@@ -527,33 +565,10 @@
     const mealType = $("#reminder-meal").value;
 
     if (enabled) {
-      if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-        showToast("Les notifications ne sont pas supportées sur ce navigateur.");
-        return;
-      }
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        showToast("Autorisation refusée — impossible d'activer les rappels.");
-        return;
-      }
       try {
-        const reg = await navigator.serviceWorker.ready;
-        let sub = await reg.pushManager.getSubscription();
-        if (!sub) {
-          const { publicKey } = await api("/api/push/vapid-public-key");
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey),
-          });
-        }
-        await api("/api/push/subscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sub),
-        });
+        await ensurePushSubscription();
       } catch (e) {
-        console.error(e);
-        showToast("Impossible d'activer les rappels sur cet appareil.");
+        showToast(e.message);
         return;
       }
     }
@@ -563,13 +578,34 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled, time, mealType }),
     });
-    $("#sheet-backdrop-settings").hidden = true;
     showToast(enabled ? "Rappel activé ✓" : "Rappel désactivé");
+  }
+
+  async function saveTisane() {
+    const enabled = $("#tisane-enabled").checked;
+    const time = $("#tisane-time").value || "20:30";
+
+    if (enabled) {
+      try {
+        await ensurePushSubscription();
+      } catch (e) {
+        showToast(e.message);
+        return;
+      }
+    }
+
+    await api("/api/settings/tisane", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled, time }),
+    });
+    showToast(enabled ? "Rituel tisane activé ✓" : "Rituel tisane désactivé");
   }
 
   function initSettings() {
     $("#btn-settings").addEventListener("click", openSettings);
     $("#btn-save-reminder").addEventListener("click", saveReminder);
+    $("#btn-save-tisane").addEventListener("click", saveTisane);
   }
 
   // ============ SHEET CLOSE HANDLERS ============

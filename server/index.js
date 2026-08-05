@@ -172,6 +172,7 @@ function setSetting(key, value) {
 }
 
 const DEFAULT_REMINDER = { enabled: false, time: "17:00", mealType: "diner" };
+const DEFAULT_TISANE = { enabled: false, time: "20:30" };
 
 // ---------- API ----------
 
@@ -341,7 +342,19 @@ app.put("/api/settings/reminder", (req, res) => {
   res.json(value);
 });
 
-// ---------- Boucle de rappel (vérifie chaque minute) ----------
+app.get("/api/settings/tisane", (req, res) => {
+  res.json(getSetting("tisane", DEFAULT_TISANE));
+});
+
+app.put("/api/settings/tisane", (req, res) => {
+  const { enabled = false, time = "20:30" } = req.body || {};
+  if (!/^\d{2}:\d{2}$/.test(time)) return res.status(400).json({ error: "Heure invalide (HH:MM)." });
+  const value = { enabled: !!enabled, time };
+  setSetting("tisane", value);
+  res.json(value);
+});
+
+// ---------- Boucle de rappels (vérifie chaque minute) ----------
 
 function checkReminder() {
   const reminder = getSetting("reminder", DEFAULT_REMINDER);
@@ -371,7 +384,29 @@ function checkReminder() {
   setSetting("reminder_last_sent", now.dateStr);
 }
 
-setInterval(checkReminder, 60 * 1000);
+function checkTisane() {
+  const tisane = getSetting("tisane", DEFAULT_TISANE);
+  if (!tisane.enabled) return;
+
+  const now = getParisNow();
+  const currentHHMM = `${now.hh}:${now.mm}`;
+  if (currentHHMM !== tisane.time) return;
+
+  const lastSent = getSetting("tisane_last_sent", null);
+  if (lastSent === now.dateStr) return;
+
+  sendToAll(db, {
+    title: "Rituel tisane 🍵",
+    body: "Une tisane sans sucre (camomille, verveine), un moment calme avant le coucher — pour calmer le grignotage de fin de soirée.",
+    icon: "/icons/icon-192.png",
+  });
+  setSetting("tisane_last_sent", now.dateStr);
+}
+
+setInterval(() => {
+  checkReminder();
+  checkTisane();
+}, 60 * 1000);
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 
