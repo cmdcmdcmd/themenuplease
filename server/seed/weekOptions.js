@@ -33,6 +33,11 @@ const weekOptions = {
     samedi: ["soupe-lentilles-corail-carotte", "papillote-saumon-herbes", "chili-con-carne-mijote"],
     dimanche: ["cabillaud-brocoli-quinoa", "papillote-saumon-herbes", "chili-con-carne-mijote"],
   },
+  // Bonus optionnel, proposé uniquement le samedi (pas un repas à part entière,
+  // MEALS n'inclut pas "dessert" — l'appli actuelle ignore cette clé sans risque).
+  dessert: {
+    samedi: ["gateau-yaourt-citron", "cookies-avoine-banane", "muffins-pomme-cannelle"],
+  },
 };
 
 module.exports = { DAYS, MEALS, weekOptions };
