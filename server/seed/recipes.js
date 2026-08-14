@@ -75,7 +75,7 @@ const recipes = [
     prepMinutes: 5,
     weekendOnly: false,
     ratio: "Protéines + fibres + bon gras",
-    tags: ["proteines-matin"],
+    tags: ["proteines-matin", "zero-effort"],
     spices: ["cannelle"],
     steps: [
       "Verser le yaourt grec dans un bol.",
@@ -166,7 +166,7 @@ const recipes = [
     prepMinutes: 4,
     weekendOnly: false,
     ratio: "Protéines + fibres + bon gras",
-    tags: ["proteines-matin"],
+    tags: ["proteines-matin", "zero-effort"],
     spices: ["cannelle"],
     steps: [
       "Verser le skyr (ou fromage blanc 0%) dans un bol.",
@@ -1065,6 +1065,51 @@ const recipes = [
       ing("Sucre roux", RAYONS.EPI, 50, "g"),
       ing("Beurre", RAYONS.CREM, 60, "g"),
       ing("Cannelle", RAYONS.EPICES, 1, "càc"),
+    ],
+  },
+
+  // ---------- ZÉRO EFFORT (sans cuisson, pour les jours à plat) ----------
+  {
+    id: "sandwich-thon-crudites",
+    name: "Sandwich thon, crudités & pain complet",
+    mealType: "dejeuner",
+    prepMinutes: 5,
+    weekendOnly: false,
+    ratio: "Sans cuisson — protéines + fibres",
+    tags: ["zero-effort", "omega-3"],
+    spices: [],
+    steps: [
+      "Égoutter le thon, l'écraser à la fourchette avec un filet de citron.",
+      "Garnir le pain complet de thon, tomate en rondelles et feuilles de salade.",
+    ],
+    ingredients: [
+      ing("Pain complet", RAYONS.BOUL, 2, "tranche"),
+      ing("Thon au naturel (boîte)", RAYONS.EPI, 1, "boîte"),
+      ing("Tomate", RAYONS.FL, 1, "unité"),
+      ing("Salade verte", RAYONS.FL, 2, "feuille"),
+      ing("Citron", RAYONS.FL, 0.25, "unité"),
+    ],
+  },
+  {
+    id: "assiette-jambon-fromage-crudites",
+    name: "Assiette jambon, fromage & crudités",
+    mealType: "diner",
+    prepMinutes: 5,
+    weekendOnly: false,
+    ratio: "Sans cuisson — protéines maigres + légumes",
+    tags: ["zero-effort"],
+    spices: [],
+    steps: [
+      "Disposer le jambon et le fromage dans une assiette.",
+      "Ajouter les crudités et un filet d'huile d'olive, servir avec une tranche de pain complet.",
+    ],
+    ingredients: [
+      ing("Jambon blanc", RAYONS.VPO, 100, "g"),
+      ing("Fromage type emmental", RAYONS.CREM, 60, "g"),
+      ing("Tomate", RAYONS.FL, 1, "unité"),
+      ing("Concombre", RAYONS.FL, 80, "g"),
+      ing("Pain complet", RAYONS.BOUL, 1, "tranche"),
+      ing("Huile d'olive", RAYONS.EPI, 1, "càc"),
     ],
   },
 ];

@@ -37,6 +37,7 @@ const TAG_LABELS = {
   "proteines-matin": "Protéines dès le matin",
   "omega-3": "Oméga-3",
   "fer-magnesium": "Fer & magnésium",
+  "zero-effort": "Zéro effort",
 };
 
 const WEEKEND_DAYS = ["samedi", "dimanche"];
