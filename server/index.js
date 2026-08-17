@@ -17,6 +17,82 @@ const RAYON_ORDER = [
   "Boulangerie",
 ];
 
+// ---------- Catégorisation nutritionnelle des ingrédients (pour les pastilles colorées) ----------
+// Le rayon (aisle de courses) ne suffit pas : la crèmerie mélange laitages protéinés
+// et beurre/crème (matière grasse), l'épicerie mélange féculents et condiments, etc.
+// On croise mots-clés sur le nom + repli sur le rayon.
+const GLUCIDE_KEYWORDS = [
+  "riz", "pâtes", "quinoa", "farine", "pain", "pita", "tortilla", "galette", "crêpe",
+  "semoule", "boulgour", "avoine", "flocons", "nouilles", "maïzena", "chapelure",
+  "croûtons", "lasagne", "épeautre", "granola", "biscotte",
+];
+const PROTEINE_KEYWORDS = [
+  "œuf", "oeuf", "poulet", "dinde", "bœuf", "boeuf", "porc", "veau", "agneau", "jambon",
+  "lardons", "bacon", "saumon", "cabillaud", "thon", "poisson", "crevette", "moule",
+  "saint-jacques", "hareng", "anchois", "maquereau", "sardine", "truite", "lieu", "colin",
+  "merlu", "dorade", "tofu", "tempeh", "seitan", "falafel", "edamame", "pois chiche",
+  "haricots blancs", "haricots rouges", "haricots noirs", "haricot blanc", "haricot rouge",
+  "lentille", "houmous", "fromage", "chèvre", "comté", "emmental", "feta",
+  "mozzarella", "parmesan", "ricotta", "yaourt", "yogourt", "skyr", "faisselle",
+  "cottage", "kéfir", "amande", "noisette", "noix", "graine", "sésame", "tahini",
+  "cacahuète", "soja",
+];
+const LEGUME_EXTRA_KEYWORDS = [
+  "petits pois", "fruits rouges", "tomates concassées", "maïs", "algue", "pruneaux",
+  "raisins secs", "cranberries", "restes de légumes", "olives",
+];
+const AUTRE_KEYWORDS = [
+  "beurre", "crème", "lait", "sucre", "miel", "vinaigre", "vin", "levure",
+  "cacao", "pépites", "bouillon", "fumet",
+];
+// Exceptions vérifiées en tout premier, avant les listes glucide/protéine/légume
+// génériques, pour les cas où un mot-clé plus large matcherait à tort une phrase
+// composée : "sauce soja" n'est pas une vraie source de protéines (contrairement au
+// soja seul) ; "huile d'olive" n'est pas un légume (contrairement à l'olive seule) ;
+// "pâte miso"/"pâte de curry" sont des condiments, pas des féculents (contrairement
+// à "pâte feuilletée"/"pâte à pizza", elles, bien glucides).
+const AUTRE_OVERRIDE_PHRASES = ["sauce soja", "huile", "pâte miso", "pâte de curry"];
+const RAYON_MACRO_FALLBACK = {
+  "Fruits & légumes": "legume",
+  "Viandes, poissons & œufs": "proteine",
+  "Crèmerie": "proteine",
+  "Boulangerie": "glucide",
+  "Surgelés": "legume",
+  "Épicerie": "autre",
+  "Épices & condiments": "autre",
+};
+// Mots entiers uniquement (pas de correspondance en sous-chaîne) pour éviter les faux
+// positifs du type "veau" trouvé à l'intérieur de "nouveau". Les entrées à plusieurs
+// mots (ex. "pois chiche", "saint-jacques") restent en recherche de sous-chaîne : elles
+// sont assez spécifiques pour ne pas produire de faux positifs.
+function nameWords(n) {
+  return n.split(/[^a-zàâäéèêëïîôöùûüçœ]+/i).filter(Boolean);
+}
+// Les mots-clés sont au singulier ; les noms d'ingrédients sont le plus souvent au
+// pluriel ("amandes", "graines"). On retire un "s" final avant de comparer.
+function singularize(w) {
+  return w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w;
+}
+function matchesKeyword(words, n, keyword) {
+  if (keyword.includes(" ") || keyword.includes("-")) return n.includes(keyword);
+  const k = singularize(keyword);
+  return words.some((w) => singularize(w) === k);
+}
+function classifyIngredientMacro(name, rayon) {
+  // Rayon "Viandes, poissons & œufs" : toujours une protéine, même si le nom contient
+  // un mot-clé "autre" (ex. "Harengs fumés à l'huile" ne doit pas basculer sur l'huile).
+  if (rayon === "Viandes, poissons & œufs") return "proteine";
+  const n = name.toLowerCase();
+  const words = nameWords(n);
+  const has = (list) => list.some((k) => matchesKeyword(words, n, k));
+  if (has(AUTRE_OVERRIDE_PHRASES)) return "autre";
+  if (has(GLUCIDE_KEYWORDS)) return "glucide";
+  if (has(PROTEINE_KEYWORDS)) return "proteine";
+  if (has(LEGUME_EXTRA_KEYWORDS)) return "legume";
+  if (has(AUTRE_KEYWORDS)) return "autre";
+  return RAYON_MACRO_FALLBACK[rayon] || "autre";
+}
+
 const DAY_LABELS = {
   lundi: "Lundi",
   mardi: "Mardi",
@@ -125,6 +201,7 @@ function getRecipeDetail(id, nbPersonnes) {
     unit: i.unit,
     qtyPerPerson: i.qty_per_person,
     qty: roundQty(i.qty_per_person * nbPersonnes),
+    macro: classifyIngredientMacro(i.name, i.rayon),
   }));
   return recipe;
 }

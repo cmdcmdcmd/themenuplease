@@ -482,7 +482,7 @@
       const carbPct = recipe.mealType === "diner" ? 15 : 25;
       const bar = document.createElement("div");
       bar.className = "ratio-bar";
-      bar.innerHTML = `<span style="width:50%;background:var(--bleu)"></span><span style="width:${proteinPct}%;background:var(--rouge)"></span><span style="width:${carbPct}%;background:var(--creme)"></span>`;
+      bar.innerHTML = `<span style="width:50%;background:var(--legume)"></span><span style="width:${proteinPct}%;background:var(--rouge)"></span><span style="width:${carbPct}%;background:var(--glucide)"></span>`;
       content.appendChild(bar);
     }
     const legend = document.createElement("div");
@@ -502,11 +502,16 @@
     ingTitle.textContent = `Ingrédients — ${nbPersonnes} pers.`;
     content.appendChild(ingTitle);
 
+    const macroLegend = document.createElement("div");
+    macroLegend.className = "macro-legend mono";
+    macroLegend.innerHTML = `<span><i class="lg-legume"></i>Légumes</span><span><i class="lg-proteine"></i>Protéines</span><span><i class="lg-glucide"></i>Glucides</span>`;
+    content.appendChild(macroLegend);
+
     const ingList = document.createElement("ul");
     ingList.className = "ingredient-list";
     recipe.ingredients.forEach((ing) => {
       const li = document.createElement("li");
-      li.innerHTML = `<span class="ing-dot"></span><span class="ing-name">${ing.name}</span><span class="qty">${formatQty(ing.qty)} ${ing.unit}</span>`;
+      li.innerHTML = `<span class="ing-dot" data-macro="${ing.macro}"></span><span class="ing-name">${ing.name}</span><span class="qty">${formatQty(ing.qty)} ${ing.unit}</span>`;
       ingList.appendChild(li);
     });
     content.appendChild(ingList);

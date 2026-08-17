@@ -15,6 +15,9 @@
   --pole-light:#F7F1DC;
   --pole-dark:#1B4A30;
   --divider-rgb:247,241,220;
+  --legume:#6FCB6F;
+  --glucide:#E8C36A;
+  --neutre-ing:#6B8577;
 
   --font-display:'Archivo Black', sans-serif;
   --font-body:'Archivo', sans-serif;
@@ -32,6 +35,9 @@
   --pole-light:#F2E8B0;
   --pole-dark:#1E1A12;
   --divider-rgb:30,26,18;
+  --legume:#3F8F4F;
+  --glucide:#A8791E;
+  --neutre-ing:#9C9478;
 }
 
 *{ box-sizing:border-box; }
@@ -324,11 +330,25 @@ p{ margin:0; }
 .ingredient-list li .ing-dot{
   width:12px; height:12px; flex-shrink:0;
   clip-path:polygon(8% 12%,95% 0%,100% 88%,0% 100%);
-  background:var(--rouge);
+  background:var(--neutre-ing);
 }
-.ingredient-list li:nth-child(2n) .ing-dot{ background:var(--bleu); }
+.ingredient-list li .ing-dot[data-macro="legume"]{ background:var(--legume); }
+.ingredient-list li .ing-dot[data-macro="proteine"]{ background:var(--rouge); }
+.ingredient-list li .ing-dot[data-macro="glucide"]{ background:var(--glucide); }
 .ingredient-list li .ing-name{ flex:1; }
 .ingredient-list li .qty{ font-family:var(--font-mono); font-size:.82rem; opacity:.65; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.macro-legend{
+  display:flex; flex-wrap:wrap; gap:14px; margin:10px 0 14px;
+  font-family:var(--font-mono); font-size:.68rem; letter-spacing:.04em; opacity:.85;
+}
+.macro-legend span{ display:inline-flex; align-items:center; gap:6px; }
+.macro-legend i{
+  width:10px; height:10px; flex-shrink:0; display:inline-block;
+  clip-path:polygon(8% 12%,95% 0%,100% 88%,0% 100%);
+}
+.macro-legend .lg-legume{ background:var(--legume); }
+.macro-legend .lg-proteine{ background:var(--rouge); }
+.macro-legend .lg-glucide{ background:var(--glucide); }
 .steps-list{ counter-reset:step; display:flex; flex-direction:column; gap:14px; padding:0; list-style:none; }
 .steps-list li{ display:flex; gap:14px; align-items:flex-start; font-family:var(--font-body); font-size:.95rem; line-height:1.5; }
 .steps-list li::before{
