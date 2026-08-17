@@ -10,7 +10,7 @@
   --bleu:#9BD0EE;
   --rouge:#CE7030;
   --creme:#F7F1DC;
-  --rose:#C9527F;
+  --rose:#CE7030;
   --beige:#F7F1DC;
   --pole-light:#F7F1DC;
   --pole-dark:#1B4A30;
@@ -294,7 +294,12 @@ p{ margin:0; }
   padding:11px 0; border-top:1px solid rgba(var(--divider-rgb),.15);
 }
 .bonus-row[hidden]{ display:none; }
-.bonus-row input{ width:18px; height:18px; accent-color:var(--rouge); flex-shrink:0; }
+.bonus-row input{
+  appearance:none; -webkit-appearance:none; margin:0; flex-shrink:0; cursor:pointer;
+  width:20px; height:20px; border:2px solid var(--creme); background:transparent;
+  clip-path:polygon(8% 12%,95% 0%,100% 88%,0% 100%);
+}
+.bonus-row input:checked{ background:var(--rouge); border-color:var(--rouge); }
 .bonus-row span{ font-family:var(--font-body); font-size:.9rem; }
 #cancel-row{ border-top:1px solid rgba(var(--divider-rgb),.15); }
 
