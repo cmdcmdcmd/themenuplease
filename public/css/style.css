@@ -4,34 +4,34 @@
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-400.woff2') format('woff2'); font-weight:400; font-display:swap; }
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-700.woff2') format('woff2'); font-weight:700; font-display:swap; }
 
-/* ============ TOKENS — variante Nuit (défaut) ============ */
+/* ============ TOKENS — variante Nuit (défaut) — palette "café" ============ */
 :root{
-  --bg:#241610;
-  --bleu:#AEC3E8;
-  --rouge:#E8391D;
-  --creme:#F2EDE3;
-  --rose:#AEC3E8;
-  --beige:#F2EDE3;
-  --pole-light:#F2EDE3;
-  --pole-dark:#241610;
-  --divider-rgb:242,237,227;
+  --bg:#42302D;
+  --bleu:#EFE3C4;
+  --rouge:#EA662C;
+  --creme:#EFE3C4;
+  --rose:#26422A;
+  --beige:#EFE3C4;
+  --pole-light:#EFE3C4;
+  --pole-dark:#42302D;
+  --divider-rgb:239,227,196;
 
   --font-display:'Archivo Black', sans-serif;
   --font-body:'Archivo', sans-serif;
   --font-mono:'Space Mono', monospace;
 }
 
-/* ============ TOKENS — variante Papier ============ */
+/* ============ TOKENS — variante Papier — palette "glace" ============ */
 :root[data-theme="light"]{
-  --bg:#F1ECE3;
-  --bleu:#1E4D3B;
-  --rouge:#C64F35;
-  --creme:#211B16;
-  --rose:#E5A493;
-  --beige:#D5C5A2;
-  --pole-light:#F1ECE3;
-  --pole-dark:#211B16;
-  --divider-rgb:33,27,22;
+  --bg:#FFEDE3;
+  --bleu:#49261D;
+  --rouge:#FB4E01;
+  --creme:#49261D;
+  --rose:#CBE7F7;
+  --beige:#49261D;
+  --pole-light:#FFEDE3;
+  --pole-dark:#49261D;
+  --divider-rgb:73,38,29;
 }
 
 *{ box-sizing:border-box; }
@@ -132,7 +132,8 @@ p{ margin:0; }
   padding:18px 18px 20px; transform:rotate(-1.2deg);
   background:var(--creme); color:var(--bg);
 }
-.meal-card-btn:nth-child(2){ transform:rotate(1deg); background:var(--rose); color:var(--pole-dark); }
+.meal-card-btn:nth-child(2){ transform:rotate(1deg); background:var(--rose); color:var(--pole-light); }
+:root[data-theme="light"] .meal-card-btn:nth-child(2){ color:var(--pole-dark); }
 .meal-card-btn:nth-child(3){ transform:rotate(-.6deg); background:var(--creme); }
 .mc-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .mc-tag{ font-family:var(--font-mono); font-size:.68rem; letter-spacing:.14em; text-transform:uppercase; opacity:.65; }

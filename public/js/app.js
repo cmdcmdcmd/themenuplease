@@ -8,7 +8,7 @@
     "petit-dej": { id: "s-tasse", vb: "0 0 120 90", color: "var(--creme)" },
     dejeuner: { id: "s-bol", vb: "0 0 120 80", color: "var(--bleu)" },
     diner: { id: "s-theiere", vb: "0 0 130 90", color: "var(--rouge)" },
-    dessert: { id: "s-croissant", vb: "0 0 130 110", color: "var(--rose)" },
+    dessert: { id: "s-croissant", vb: "0 0 130 110", color: "var(--rouge)" },
   };
 
   const THEME_KEY = "menuStpTheme";
