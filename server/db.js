@@ -21,7 +21,8 @@ db.exec(`
     ratio TEXT,
     tags TEXT,
     spices TEXT,
-    steps TEXT
+    steps TEXT,
+    inspiration TEXT
   );
 
   CREATE TABLE IF NOT EXISTS ingredients (
@@ -87,24 +88,34 @@ function migrate() {
   if (!hasCancelled) {
     db.exec("ALTER TABLE weekly_plan ADD COLUMN cancelled INTEGER NOT NULL DEFAULT 0");
   }
+
+  const recipeColumns = db.prepare("PRAGMA table_info(recipes)").all();
+  const hasInspiration = recipeColumns.some((c) => c.name === "inspiration");
+  if (!hasInspiration) {
+    db.exec("ALTER TABLE recipes ADD COLUMN inspiration TEXT");
+  }
 }
 
 migrate();
 
-function seedIfEmpty() {
-  const { count } = db.prepare("SELECT COUNT(*) AS count FROM recipes").get();
-  if (count > 0) return;
+// Insère toute recette de server/seed/recipes.js pas encore en base — tourne à
+// chaque démarrage (pas seulement sur base vide), pour que les recettes ajoutées
+// au fichier de seed après le premier lancement finissent quand même en prod.
+function seedMissingRecipes() {
+  const existingIds = new Set(db.prepare("SELECT id FROM recipes").all().map((r) => r.id));
+  const missing = recipes.filter((r) => !existingIds.has(r.id));
+  if (!missing.length) return;
 
   const insertRecipe = db.prepare(`
-    INSERT INTO recipes (id, name, meal_type, prep_minutes, weekend_only, ratio, tags, spices, steps)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO recipes (id, name, meal_type, prep_minutes, weekend_only, ratio, tags, spices, steps, inspiration)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const insertIngredient = db.prepare(`
     INSERT INTO ingredients (recipe_id, name, rayon, qty_per_person, unit)
     VALUES (?, ?, ?, ?, ?)
   `);
 
-  for (const r of recipes) {
+  for (const r of missing) {
     insertRecipe.run(
       r.id,
       r.name,
@@ -114,12 +125,20 @@ function seedIfEmpty() {
       r.ratio || "",
       JSON.stringify(r.tags || []),
       JSON.stringify(r.spices || []),
-      JSON.stringify(r.steps || [])
+      JSON.stringify(r.steps || []),
+      r.inspiration || null
     );
     for (const ing of r.ingredients) {
       insertIngredient.run(r.id, ing.name, ing.rayon, ing.qtyPerPerson, ing.unit);
     }
   }
+}
+
+function seedIfEmpty() {
+  const { count } = db.prepare("SELECT COUNT(*) AS count FROM recipes").get();
+
+  seedMissingRecipes();
+  if (count > 0) return;
 
   const insertOption = db.prepare(`
     INSERT INTO day_meal_options (day, meal_type, recipe_id, position)
