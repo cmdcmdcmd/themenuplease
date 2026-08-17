@@ -4,34 +4,34 @@
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-400.woff2') format('woff2'); font-weight:400; font-display:swap; }
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-700.woff2') format('woff2'); font-weight:700; font-display:swap; }
 
-/* ============ TOKENS — variante Nuit (défaut) — palette "Ganeau" (côté vert/menthe) ============ */
+/* ============ TOKENS — variante Nuit (défaut) — synthèse de toutes les inspis (SABF, Mównica, Ganeau) ============ */
 :root{
-  --bg:#3A6B3A;
-  --bleu:#BCE8DC;
-  --rouge:#E8A888;
-  --creme:#BCE8DC;
-  --rose:#B8623E;
-  --beige:#BCE8DC;
-  --pole-light:#BCE8DC;
-  --pole-dark:#3A6B3A;
-  --divider-rgb:188,232,220;
+  --bg:#1B4A30;
+  --bleu:#9BD0EE;
+  --rouge:#CE7030;
+  --creme:#F7F1DC;
+  --rose:#C9527F;
+  --beige:#F7F1DC;
+  --pole-light:#F7F1DC;
+  --pole-dark:#1B4A30;
+  --divider-rgb:247,241,220;
 
   --font-display:'Archivo Black', sans-serif;
   --font-body:'Archivo', sans-serif;
   --font-mono:'Space Mono', monospace;
 }
 
-/* ============ TOKENS — variante Papier — palette "Ganeau" (jaune pâle + bleu + orange) ============ */
+/* ============ TOKENS — variante Papier — synthèse de toutes les inspis (SABF, Mównica, Ganeau) ============ */
 :root[data-theme="light"]{
-  --bg:#F2EFA8;
-  --bleu:#3A5FA0;
-  --rouge:#A8501A;
-  --creme:#1A1810;
-  --rose:#D97A2E;
-  --beige:#1A1810;
-  --pole-light:#F2EFA8;
-  --pole-dark:#1A1810;
-  --divider-rgb:26,24,16;
+  --bg:#F2E8B0;
+  --bleu:#2F5488;
+  --rouge:#9C4A1C;
+  --creme:#1E1A12;
+  --rose:#D98BA0;
+  --beige:#1E1A12;
+  --pole-light:#F2E8B0;
+  --pole-dark:#1E1A12;
+  --divider-rgb:30,26,18;
 }
 
 *{ box-sizing:border-box; }
@@ -411,7 +411,7 @@ p{ margin:0; }
 }
 .pill:nth-child(2n){ transform:rotate(1deg); }
 .pill:nth-child(3n+2){ background:var(--rouge); color:var(--pole-light); transform:rotate(-.6deg); }
-.pill:nth-child(3n){ background:var(--beige); color:var(--pole-dark); transform:rotate(.8deg); }
+.pill:nth-child(3n){ background:var(--beige); color:var(--bg); transform:rotate(.8deg); }
 .pill.bonus{ background:var(--rouge); color:var(--pole-light); }
 .option-card.selected .pill{ background:rgba(255,255,255,.22); color:var(--pole-light); }
 
