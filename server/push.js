@@ -69,4 +69,14 @@ function getParisNow() {
   };
 }
 
-module.exports = { vapidKeys, sendToAll, getParisNow };
+// Saisons météorologiques (mois calendaires, plus simples et lisibles que les
+// dates d'équinoxe/solstice pour un usage "quelles recettes sont de saison").
+function getCurrentSeason() {
+  const month = Number(getParisNow().dateStr.split("-")[1]);
+  if (month === 12 || month <= 2) return "hiver";
+  if (month <= 5) return "printemps";
+  if (month <= 8) return "ete";
+  return "automne";
+}
+
+module.exports = { vapidKeys, sendToAll, getParisNow, getCurrentSeason };

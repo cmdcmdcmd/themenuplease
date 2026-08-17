@@ -22,7 +22,8 @@ db.exec(`
     tags TEXT,
     spices TEXT,
     steps TEXT,
-    inspiration TEXT
+    inspiration TEXT,
+    season TEXT
   );
 
   CREATE TABLE IF NOT EXISTS ingredients (
@@ -94,29 +95,42 @@ function migrate() {
   if (!hasInspiration) {
     db.exec("ALTER TABLE recipes ADD COLUMN inspiration TEXT");
   }
+  const hasSeason = recipeColumns.some((c) => c.name === "season");
+  if (!hasSeason) {
+    db.exec("ALTER TABLE recipes ADD COLUMN season TEXT");
+  }
 }
 
 migrate();
 
-// Insère toute recette de server/seed/recipes.js pas encore en base — tourne à
-// chaque démarrage (pas seulement sur base vide), pour que les recettes ajoutées
-// au fichier de seed après le premier lancement finissent quand même en prod.
-function seedMissingRecipes() {
-  const existingIds = new Set(db.prepare("SELECT id FROM recipes").all().map((r) => r.id));
-  const missing = recipes.filter((r) => !existingIds.has(r.id));
-  if (!missing.length) return;
-
-  const insertRecipe = db.prepare(`
-    INSERT INTO recipes (id, name, meal_type, prep_minutes, weekend_only, ratio, tags, spices, steps, inspiration)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+// server/seed/recipes.js fait foi : à chaque démarrage, insère les recettes
+// manquantes et remet à jour les recettes déjà en base (nom, tags, saison,
+// ingrédients...) pour que les éditions du fichier de seed atteignent aussi
+// une base déjà peuplée (prod), pas seulement une base vide au premier lancement.
+function syncRecipes() {
+  const upsertRecipe = db.prepare(`
+    INSERT INTO recipes (id, name, meal_type, prep_minutes, weekend_only, ratio, tags, spices, steps, inspiration, season)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      meal_type = excluded.meal_type,
+      prep_minutes = excluded.prep_minutes,
+      weekend_only = excluded.weekend_only,
+      ratio = excluded.ratio,
+      tags = excluded.tags,
+      spices = excluded.spices,
+      steps = excluded.steps,
+      inspiration = excluded.inspiration,
+      season = excluded.season
   `);
+  const deleteIngredients = db.prepare("DELETE FROM ingredients WHERE recipe_id = ?");
   const insertIngredient = db.prepare(`
     INSERT INTO ingredients (recipe_id, name, rayon, qty_per_person, unit)
     VALUES (?, ?, ?, ?, ?)
   `);
 
-  for (const r of missing) {
-    insertRecipe.run(
+  for (const r of recipes) {
+    upsertRecipe.run(
       r.id,
       r.name,
       r.mealType,
@@ -126,8 +140,10 @@ function seedMissingRecipes() {
       JSON.stringify(r.tags || []),
       JSON.stringify(r.spices || []),
       JSON.stringify(r.steps || []),
-      r.inspiration || null
+      r.inspiration || null,
+      JSON.stringify(r.season || [])
     );
+    deleteIngredients.run(r.id);
     for (const ing of r.ingredients) {
       insertIngredient.run(r.id, ing.name, ing.rayon, ing.qtyPerPerson, ing.unit);
     }
@@ -137,7 +153,7 @@ function seedMissingRecipes() {
 function seedIfEmpty() {
   const { count } = db.prepare("SELECT COUNT(*) AS count FROM recipes").get();
 
-  seedMissingRecipes();
+  syncRecipes();
   if (count > 0) return;
 
   const insertOption = db.prepare(`

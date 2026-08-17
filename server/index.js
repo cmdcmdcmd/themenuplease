@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("node:path");
 const { db, DAYS, MEALS } = require("./db");
-const { vapidKeys, sendToAll, getParisNow } = require("./push");
+const { vapidKeys, sendToAll, getParisNow, getCurrentSeason } = require("./push");
 const { weekOptions } = require("./seed/weekOptions");
 const { PIN_REGEX, makeSalt, hashPin, verifyPin, makeToken } = require("./auth");
 
@@ -73,6 +73,24 @@ function getFavoritesMap() {
   return map;
 }
 
+// ---------- Saison ----------
+// Un tableau season vide = recette disponible toute l'année (la majorité des
+// recettes). Une recette avec des saisons précises n'est proposée que pendant
+// celles-ci — le pool se met donc à jour tout seul au fil des mois.
+
+function isInSeason(seasonJson, currentSeason) {
+  let arr;
+  try { arr = JSON.parse(seasonJson || "[]"); } catch (e) { arr = []; }
+  return !arr.length || arr.includes(currentSeason);
+}
+
+function getSeasonMap() {
+  const rows = db.prepare("SELECT id, season FROM recipes").all();
+  const map = {};
+  for (const r of rows) map[r.id] = r.season;
+  return map;
+}
+
 // ---------- Recettes ----------
 
 function parseRecipeRow(row, favorites) {
@@ -86,6 +104,7 @@ function parseRecipeRow(row, favorites) {
     tags: JSON.parse(row.tags || "[]"),
     spices: JSON.parse(row.spices || "[]"),
     steps: JSON.parse(row.steps || "[]"),
+    season: JSON.parse(row.season || "[]"),
     favorite: favorites ? favorites[row.id] || null : null,
   };
 }
@@ -115,10 +134,12 @@ function getRecipeDetail(id, nbPersonnes) {
 
 function pickEligiblePool(mealType, day, excludeIds, favorites) {
   const isWeekend = WEEKEND_DAYS.includes(day);
-  const rows = db.prepare("SELECT id, weekend_only FROM recipes WHERE meal_type = ?").all(mealType);
+  const season = getCurrentSeason();
+  const rows = db.prepare("SELECT id, weekend_only, season FROM recipes WHERE meal_type = ?").all(mealType);
   const excludeSet = new Set(excludeIds);
   const eligible = rows
     .filter((r) => (isWeekend ? true : !r.weekend_only))
+    .filter((r) => isInSeason(r.season, season))
     .filter((r) => favorites[r.id] !== "banned")
     .filter((r) => !excludeSet.has(r.id))
     .map((r) => r.id);
@@ -131,6 +152,8 @@ function pickEligiblePool(mealType, day, excludeIds, favorites) {
 
 function resolveOptions(day, meal, { forceReroll = false } = {}) {
   const favorites = getFavoritesMap();
+  const season = getCurrentSeason();
+  const seasonMap = getSeasonMap();
   const defaultIds = weekOptions[meal][day];
 
   const overrideRow = forceReroll
@@ -138,7 +161,7 @@ function resolveOptions(day, meal, { forceReroll = false } = {}) {
     : db.prepare("SELECT recipe_ids FROM current_options WHERE day = ? AND meal_type = ?").get(day, meal);
 
   let baseIds = overrideRow ? JSON.parse(overrideRow.recipe_ids) : defaultIds;
-  let ids = baseIds.filter((id) => favorites[id] !== "banned");
+  let ids = baseIds.filter((id) => favorites[id] !== "banned" && isInSeason(seasonMap[id], season));
 
   if (forceReroll) {
     // Une vraie roulette : on exclut aussi les options actuellement affichées.
@@ -330,9 +353,11 @@ app.post("/api/options/:day/:meal/zero-effort", (req, res) => {
   }
   const favorites = getFavoritesMap();
   const isWeekend = WEEKEND_DAYS.includes(day);
-  const rows = db.prepare("SELECT id, weekend_only, tags FROM recipes WHERE meal_type = ?").all(meal);
+  const season = getCurrentSeason();
+  const rows = db.prepare("SELECT id, weekend_only, tags, season FROM recipes WHERE meal_type = ?").all(meal);
   const ids = rows
     .filter((r) => (isWeekend ? true : !r.weekend_only))
+    .filter((r) => isInSeason(r.season, season))
     .filter((r) => favorites[r.id] !== "banned")
     .filter((r) => JSON.parse(r.tags || "[]").includes("zero-effort"))
     .map((r) => r.id)

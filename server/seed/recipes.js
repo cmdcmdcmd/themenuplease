@@ -1432,6 +1432,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Alain Passard",
+    season: ["printemps"],
     steps: [
       "Cuire les asperges 4 min à l'eau bouillante",
       "Œufs mollets 6 min",
@@ -1947,6 +1948,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Alain Ducasse",
+    season: ["ete"],
     steps: [
       "Œufs durs 9 min, haricots verts 8 min",
       "Assembler tous les éléments, vinaigrette olive",
@@ -1970,6 +1972,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Ottolenghi",
+    season: ["ete"],
     steps: [
       "Cuire et refroidir le quinoa",
       "Hacher généreusement les herbes, mélanger avec tomates et assaisonnement",
@@ -1993,6 +1996,7 @@ const recipes = [
     tags: ["omega-3"],
     spices: [],
     inspiration: "Alain Ducasse",
+    season: ["ete"],
     steps: [
       "Compoter les légumes en dés 25 min",
       "Griller les sardines 3 min par face",
@@ -2040,6 +2044,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Alain Passard",
+    season: ["automne","hiver"],
     steps: [
       "Cuire les légumes en morceaux 25 min, mixer",
       "Tartine de chèvre passée au gril",
@@ -2132,6 +2137,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "cuisine familiale du Sud, esprit Ducasse",
+    season: ["ete"],
     steps: [
       "Sauter les courgettes, mélanger avec quinoa et œufs battus",
       "Chèvre dessus, 25 min à 180 °C",
@@ -2200,6 +2206,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Simone Zanoni",
+    season: ["automne"],
     steps: [
       "Revenir l'oignon et les champignons",
       "Ajouter l'épeautre, mouiller au bouillon louche par louche 30 min",
@@ -2316,6 +2323,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Anne-Sophie Pic",
+    season: ["automne"],
     steps: [
       "Cuire potimarron et oignon dans le bouillon 20 min",
       "Mixer avec la crème",
@@ -2735,6 +2743,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Alain Ducasse",
+    season: ["ete"],
     steps: [
       "Cuire chaque légume séparément puis assembler et compoter",
       "Pocher les œufs, poser sur la ratatouille",
@@ -2780,6 +2789,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "cuisine familiale, esprit Guérard",
+    season: ["automne","hiver"],
     steps: [
       "Chou-fleur vapeur 10 min",
       "Béchamel légère au lait et maïzena",
@@ -2828,6 +2838,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "bistrot français",
+    season: ["ete"],
     steps: [
       "Moutarder la pâte, ranger les tomates en rondelles",
       "Chèvre et thym, 25 min à 200 °C",
@@ -2994,6 +3005,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Ottolenghi",
+    season: ["automne"],
     steps: [
       "Rôtir les demi-courges 35 min à 200 °C",
       "Garnir de quinoa-feta-cranberries",
@@ -3017,6 +3029,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Cyril Lignac (version allégée)",
+    season: ["automne","hiver"],
     steps: [
       "Pocher le poulet avec les légumes 30 min",
       "Lier le bouillon à la crème et au citron",
@@ -3114,6 +3127,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "cuisine du Nord, esprit familial",
+    season: ["hiver"],
     steps: [
       "Braiser les endives 15 min",
       "Rouler dans le jambon, napper de béchamel légère",
@@ -3138,6 +3152,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Anne-Sophie Pic (esprit velouté)",
+    season: ["automne","hiver"],
     steps: [
       "Tout cuire ensemble 25 min",
       "Mixer, ajuster la texture au bouillon",
@@ -3207,6 +3222,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Alain Ducasse",
+    season: ["ete"],
     steps: [
       "Ranger les légumes en rondelles alternées serrées",
       "Thym et huile, 40 min à 180 °C",
@@ -3278,6 +3294,7 @@ const recipes = [
     tags: [],
     spices: [],
     inspiration: "Simone Zanoni",
+    season: ["ete"],
     steps: [
       "Griller les aubergines au four (pas de friture)",
       "Monter en couches avec sauce et fromages",
