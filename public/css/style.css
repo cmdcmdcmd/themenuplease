@@ -85,10 +85,11 @@ p{ margin:0; }
 }
 .streak-badge[hidden]{ display:none; }
 .settings-btn{
-  font-family:var(--font-mono); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase;
-  background:transparent; border:2px solid var(--creme); color:var(--creme);
-  padding:8px 12px; cursor:pointer; flex-shrink:0; margin-top:2px;
+  font-family:var(--font-mono); font-size:.68rem; letter-spacing:.08em; text-transform:uppercase;
+  background:none; border:none; color:var(--creme); opacity:.45;
+  padding:8px 2px; cursor:pointer; flex-shrink:0; margin-top:2px;
 }
+.settings-btn:hover, .settings-btn:active{ opacity:.8; }
 
 #main{ flex:1; padding:16px 18px 8px; }
 .view-intro{ padding:2px 4px 20px; }
@@ -177,6 +178,13 @@ p{ margin:0; }
 .btn:hover{ transform:rotate(.5deg) scale(1.02); }
 .btn-primary{ background:var(--rouge); color:var(--pole-light); }
 .btn-ghost{ background:transparent; color:var(--creme); outline:3px solid var(--creme); outline-offset:-3px; clip-path:none; }
+.btn-clear-choice{
+  display:block; margin:10px auto 0; font-family:var(--font-mono); font-size:.74rem;
+  background:none; border:none; color:var(--creme); opacity:.4; cursor:pointer; padding:8px;
+  text-decoration:underline; text-underline-offset:3px;
+}
+.btn-clear-choice:hover, .btn-clear-choice:active{ opacity:.75; color:var(--rouge); }
+.btn-clear-choice[hidden]{ display:none; }
 .shopping-progress{
   font-family:var(--font-mono); font-size:.78rem; letter-spacing:.06em; color:var(--bleu); text-align:center;
 }
@@ -345,6 +353,37 @@ p{ margin:0; }
 .settings-subtitle{
   font-family:var(--font-display); font-size:1.2rem; letter-spacing:-0.01em; color:var(--creme); margin-bottom:14px;
 }
+.field-error{ margin-top:14px; font-size:.8rem; color:var(--rouge); line-height:1.5; }
+#btn-save-pin{ margin-top:18px; }
+#btn-logout{ margin-top:14px; }
+
+/* ============ VERROU PIN ============ */
+.lock-screen{
+  position:fixed; inset:0; z-index:1000; background:var(--bg);
+  display:flex; align-items:center; justify-content:center; padding:24px;
+}
+.lock-screen[hidden]{ display:none; }
+.lock-card{
+  width:100%; max-width:340px; background:var(--creme); color:var(--bg);
+  padding:34px 28px 30px;
+}
+.lock-card .eyebrow{ font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; opacity:.6; }
+.lock-title{
+  font-family:var(--font-display); font-size:1.8rem; line-height:1; letter-spacing:-0.02em;
+  margin-top:6px;
+}
+.lock-sub{ font-size:.8rem; opacity:.7; margin-top:10px; }
+.lock-pin-input{
+  display:block; width:100%; margin-top:22px; border:2px solid var(--bg); background:transparent;
+  color:var(--bg); padding:14px 12px; font-size:1.6rem; letter-spacing:.5em; text-align:center;
+  font-family:var(--font-mono); font-weight:700;
+}
+.lock-pin-input::placeholder{ letter-spacing:.5em; opacity:.3; }
+.lock-pin-input[hidden]{ display:none; }
+.lock-confirm-label{ font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; opacity:.6; margin-top:20px; }
+.lock-error{ margin-top:14px; font-family:var(--font-mono); font-size:.8rem; color:var(--rouge); line-height:1.5; }
+#lock-submit{ width:100%; margin-top:24px; transform:none; }
+#lock-submit:hover{ transform:scale(1.02); }
 
 /* ============ PILLS / TAGS ============ */
 .pill{

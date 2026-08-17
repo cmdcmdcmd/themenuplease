@@ -1,4 +1,4 @@
-# Menu, s'il te plaît 🍽️
+# The menu, please 🍽️
 
 Planificateur de repas TDAH-friendly : tu choisis un plat parmi 3 options pour
 chaque repas de la semaine (petit-déj, déjeuner, dîner), tu règles le nombre

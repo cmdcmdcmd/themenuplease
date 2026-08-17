@@ -1,4 +1,4 @@
-const CACHE_NAME = "menu-stp-v3";
+const CACHE_NAME = "menu-stp-v4";
 const SHELL_ASSETS = [
   "/",
   "/css/style.css",
@@ -51,7 +51,7 @@ self.addEventListener("fetch", (event) => {
 
 // ============ RAPPELS (Web Push) ============
 self.addEventListener("push", (event) => {
-  let data = { title: "Menu, s'il te plaît 🍽️", body: "C'est l'heure de penser à ton repas !" };
+  let data = { title: "The menu, please 🍽️", body: "C'est l'heure de penser à ton repas !" };
   if (event.data) {
     try { data = event.data.json(); } catch (e) { data.body = event.data.text(); }
   }

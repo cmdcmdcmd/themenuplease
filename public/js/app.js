@@ -13,6 +13,7 @@
 
   const THEME_KEY = "menuStpTheme";
   const STREAK_KEY = "menuStpStreak";
+  const TOKEN_KEY = "menuStpToken";
   const STREAK_THRESHOLD = 10; // sur 21 créneaux (3 repas x 7 jours), hors dessert bonus
 
   let meta = null;
@@ -20,12 +21,25 @@
   let picker = { day: null, meal: null, recipeId: null, nbPersonnes: 2, portionBonus: false, cancelled: false };
   let currentRecipeSheetId = null;
   let lastShoppingData = null;
+  let authToken = localStorage.getItem(TOKEN_KEY) || null;
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  async function api(path, options) {
-    const res = await fetch(path, options);
+  function setToken(token) {
+    authToken = token;
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  }
+
+  async function api(path, options = {}) {
+    const headers = Object.assign({}, options.headers, authToken ? { Authorization: "Bearer " + authToken } : {});
+    const res = await fetch(path, Object.assign({}, options, { headers }));
+    if (res.status === 401 && !path.startsWith("/api/auth/")) {
+      setToken(null);
+      showLock("login");
+      throw new Error("Authentification requise.");
+    }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || `Erreur ${res.status}`);
@@ -364,6 +378,16 @@
 
   function updateSeeRecipeButton() {
     $("#btn-see-recipe").hidden = !picker.recipeId;
+    $("#btn-clear-choice").hidden = !picker.recipeId;
+  }
+
+  async function clearChoice() {
+    picker.recipeId = null;
+    picker.portionBonus = false;
+    $("#bonus-toggle").checked = false;
+    renderPickerOptions(findMealOptions());
+    updateSeeRecipeButton();
+    await savePlan();
   }
 
   async function savePlan() {
@@ -378,7 +402,9 @@
       }),
     });
     await loadWeek();
-    showToast(picker.cancelled ? "Repas annulé" : "Repas enregistré");
+    if (picker.cancelled) showToast("Repas annulé");
+    else if (!picker.recipeId) showToast("Choix retiré");
+    else showToast("Repas enregistré");
   }
 
   async function handleReroll() {
@@ -415,6 +441,7 @@
     $("#btn-see-recipe").addEventListener("click", () => {
       if (picker.recipeId) openRecipeSheet(picker.recipeId, picker.nbPersonnes);
     });
+    $("#btn-clear-choice").addEventListener("click", clearChoice);
     $("#btn-reroll").addEventListener("click", handleReroll);
     $("#btn-zero-effort").addEventListener("click", handleZeroEffort);
   }
@@ -559,6 +586,7 @@
         const isChecked = localStorage.getItem(key) === "1";
         const row = document.createElement("div");
         row.className = "item-row" + (isChecked ? " checked" : "");
+        row.dataset.key = key;
         row.innerHTML = `<span class="item-checkbox"></span><span class="item-label">${item.name}</span><span class="item-qty">${formatQty(item.qty)} ${item.unit}</span>`;
         row.addEventListener("click", () => {
           const nowChecked = !row.classList.contains("checked");
@@ -583,9 +611,23 @@
     el.textContent = checked === total && total > 0 ? `tout est coché, direction les fourneaux !` : `${checked}/${total} cochés`;
   }
 
+  function clearBoughtItems() {
+    const checkedRows = $$(".item-row.checked");
+    if (!checkedRows.length) { showToast("Rien à vider — coche d'abord ce que tu as acheté"); return; }
+    checkedRows.forEach((row) => {
+      localStorage.removeItem(row.dataset.key);
+      row.remove();
+    });
+    $$(".rayon-block").forEach((block) => {
+      if (!block.querySelector(".item-row")) block.remove();
+    });
+    updateProgress();
+    showToast("Courses faites, liste nettoyée");
+  }
+
   function buildShareText() {
     if (!lastShoppingData || lastShoppingData.isEmpty) return "";
-    const lines = ["Liste de courses — Menu, s'il te plaît", ""];
+    const lines = ["Liste de courses — The menu, please", ""];
     lastShoppingData.rayons.forEach((group) => {
       lines.push(`— ${group.rayon} —`);
       group.items.forEach((item) => {
@@ -730,11 +772,47 @@
     showToast(enabled ? "Rappel dimanche activé" : "Rappel dimanche désactivé");
   }
 
+  async function savePin() {
+    const currentPin = $("#pin-current").value.trim();
+    const newPin = $("#pin-new").value.trim();
+    const confirmPin = $("#pin-new-confirm").value.trim();
+    const errEl = $("#pin-change-error");
+    errEl.hidden = true;
+
+    if (!/^\d{6}$/.test(newPin)) { errEl.textContent = "Le nouveau code doit contenir 6 chiffres."; errEl.hidden = false; return; }
+    if (newPin !== confirmPin) { errEl.textContent = "Les deux nouveaux codes ne correspondent pas."; errEl.hidden = false; return; }
+
+    try {
+      const { token } = await api("/api/auth/change-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPin, newPin }),
+      });
+      setToken(token);
+      $("#pin-current").value = "";
+      $("#pin-new").value = "";
+      $("#pin-new-confirm").value = "";
+      showToast("Code changé — les autres appareils devront le ressaisir");
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.hidden = false;
+    }
+  }
+
+  async function logoutDevice() {
+    try { await api("/api/auth/logout", { method: "POST" }); } catch (e) { /* on verrouille quand même */ }
+    setToken(null);
+    $("#sheet-backdrop-settings").hidden = true;
+    showLock("login");
+  }
+
   function initSettings() {
     $("#btn-settings").addEventListener("click", openSettings);
     $("#btn-save-reminder").addEventListener("click", saveReminder);
     $("#btn-save-tisane").addEventListener("click", saveTisane);
     $("#btn-save-planning").addEventListener("click", savePlanning);
+    $("#btn-save-pin").addEventListener("click", savePin);
+    $("#btn-logout").addEventListener("click", logoutDevice);
   }
 
   // ============ THÈME ============
@@ -762,22 +840,105 @@
     });
   }
 
+  // ============ VERROU PIN (code famille) ============
+  let lockMode = "login";
+
+  function showLock(mode) {
+    lockMode = mode;
+    $("#lock-screen").hidden = false;
+    $("#lock-pin").value = "";
+    $("#lock-pin-confirm").value = "";
+    $("#lock-error").hidden = true;
+    if (mode === "setup") {
+      $("#lock-eyebrow").textContent = "Bienvenue";
+      $("#lock-title").textContent = "Crée le code de la famille";
+      $("#lock-sub").textContent = "6 chiffres, à partager avec les autres appareils du foyer";
+      $("#lock-confirm-label").hidden = false;
+      $("#lock-pin-confirm").hidden = false;
+      $("#lock-submit").textContent = "Créer le code";
+    } else {
+      $("#lock-eyebrow").textContent = "Verrouillé";
+      $("#lock-title").textContent = "Entre le code";
+      $("#lock-sub").textContent = "code à 6 chiffres partagé en famille";
+      $("#lock-confirm-label").hidden = true;
+      $("#lock-pin-confirm").hidden = true;
+      $("#lock-submit").textContent = "Déverrouiller";
+    }
+    requestAnimationFrame(() => $("#lock-pin").focus());
+  }
+
+  function hideLock() {
+    $("#lock-screen").hidden = true;
+  }
+
+  function showLockError(msg) {
+    const el = $("#lock-error");
+    el.textContent = msg;
+    el.hidden = false;
+  }
+
+  async function submitLock() {
+    const pin = $("#lock-pin").value.trim();
+    if (!/^\d{6}$/.test(pin)) { showLockError("Le code doit contenir 6 chiffres."); return; }
+
+    if (lockMode === "setup") {
+      const confirmPin = $("#lock-pin-confirm").value.trim();
+      if (pin !== confirmPin) { showLockError("Les deux codes ne correspondent pas."); return; }
+      try {
+        const { token } = await api("/api/auth/setup", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }),
+        });
+        setToken(token);
+        hideLock();
+        await bootApp();
+      } catch (e) { showLockError(e.message); }
+    } else {
+      try {
+        const { token } = await api("/api/auth/login", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin }),
+        });
+        setToken(token);
+        hideLock();
+        await bootApp();
+      } catch (e) { showLockError(e.message); }
+    }
+  }
+
+  function initLockScreen() {
+    $("#lock-submit").addEventListener("click", submitLock);
+    [$("#lock-pin"), $("#lock-pin-confirm")].forEach((input) => {
+      input.addEventListener("keydown", (e) => { if (e.key === "Enter") submitLock(); });
+    });
+  }
+
   // ============ INIT ============
-  async function init() {
-    initTheme();
-    meta = await api("/api/meta");
+  async function bootApp() {
     initTabs();
     initPickerControls();
     initFavoriteControls();
     initSettings();
     initSheetClosers();
+    meta = await api("/api/meta");
     await loadWeek();
 
     $("#btn-refresh-list").addEventListener("click", loadShoppingList);
     $("#btn-share-list").addEventListener("click", shareShoppingList);
+    $("#btn-bought").addEventListener("click", clearBoughtItems);
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }
+
+  async function init() {
+    initTheme();
+    initLockScreen();
+
+    if (authToken) {
+      try { await bootApp(); } catch (e) { /* api() a déjà affiché le verrou en cas de 401 */ }
+    } else {
+      const status = await api("/api/auth/status").catch(() => ({ hasPin: true }));
+      showLock(status.hasPin ? "login" : "setup");
     }
   }
 

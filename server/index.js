@@ -3,6 +3,7 @@ const path = require("node:path");
 const { db, DAYS, MEALS } = require("./db");
 const { vapidKeys, sendToAll, getParisNow } = require("./push");
 const { weekOptions } = require("./seed/weekOptions");
+const { PIN_REGEX, makeSalt, hashPin, verifyPin, makeToken } = require("./auth");
 
 const app = express();
 app.use(express.json());
@@ -183,6 +184,99 @@ function setSetting(key, value) {
 const DEFAULT_REMINDER = { enabled: false, time: "17:00", mealType: "diner" };
 const DEFAULT_TISANE = { enabled: false, time: "20:30" };
 const DEFAULT_PLANNING = { enabled: false, time: "19:00" };
+
+// ---------- Authentification (code PIN partagé en famille) ----------
+// Un seul code pour tout le foyer : chaque appareil garde son propre jeton de
+// session après déverrouillage, pour ne pas retaper le code à chaque visite.
+
+const PUBLIC_AUTH_PATHS = new Set(["/api/auth/status", "/api/auth/setup", "/api/auth/login"]);
+const LOGIN_MAX_FAILS = 5;
+const LOGIN_LOCKOUT_MS = 5 * 60 * 1000;
+const loginState = { fails: 0, lockedUntil: 0 };
+
+function getAuthConfig() {
+  return getSetting("auth_pin", null);
+}
+
+function createSession() {
+  const token = makeToken();
+  db.prepare("INSERT INTO sessions (token, created_at) VALUES (?, ?)").run(token, new Date().toISOString());
+  return token;
+}
+
+function isValidSession(token) {
+  return !!token && !!db.prepare("SELECT 1 FROM sessions WHERE token = ?").get(token);
+}
+
+function requireAuth(req, res, next) {
+  const token = (req.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!isValidSession(token)) return res.status(401).json({ error: "Authentification requise." });
+  next();
+}
+
+app.use((req, res, next) => {
+  if (!req.path.startsWith("/api/") || PUBLIC_AUTH_PATHS.has(req.path)) return next();
+  return requireAuth(req, res, next);
+});
+
+app.get("/api/auth/status", (req, res) => {
+  res.json({ hasPin: !!getAuthConfig() });
+});
+
+app.post("/api/auth/setup", (req, res) => {
+  if (getAuthConfig()) return res.status(409).json({ error: "Un code existe déjà — demande-le à la famille." });
+  const { pin } = req.body || {};
+  if (!PIN_REGEX.test(pin || "")) return res.status(400).json({ error: "Le code doit contenir 6 chiffres." });
+  const salt = makeSalt();
+  setSetting("auth_pin", { salt, hash: hashPin(pin, salt) });
+  res.json({ token: createSession() });
+});
+
+app.post("/api/auth/login", (req, res) => {
+  const auth = getAuthConfig();
+  if (!auth) return res.status(409).json({ error: "Aucun code n'est configuré." });
+
+  if (Date.now() < loginState.lockedUntil) {
+    const waitMin = Math.ceil((loginState.lockedUntil - Date.now()) / 60000);
+    return res.status(429).json({ error: `Trop d'essais. Réessaie dans ${waitMin} min.` });
+  }
+
+  const { pin } = req.body || {};
+  if (!PIN_REGEX.test(pin || "") || !verifyPin(pin, auth.salt, auth.hash)) {
+    loginState.fails += 1;
+    if (loginState.fails >= LOGIN_MAX_FAILS) {
+      loginState.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+      loginState.fails = 0;
+    }
+    return res.status(401).json({ error: "Code incorrect." });
+  }
+
+  loginState.fails = 0;
+  loginState.lockedUntil = 0;
+  res.json({ token: createSession() });
+});
+
+app.post("/api/auth/change-pin", requireAuth, (req, res) => {
+  const auth = getAuthConfig();
+  const { currentPin, newPin } = req.body || {};
+  if (!auth || !PIN_REGEX.test(currentPin || "") || !verifyPin(currentPin, auth.salt, auth.hash)) {
+    return res.status(401).json({ error: "Code actuel incorrect." });
+  }
+  if (!PIN_REGEX.test(newPin || "")) return res.status(400).json({ error: "Le nouveau code doit contenir 6 chiffres." });
+
+  const salt = makeSalt();
+  setSetting("auth_pin", { salt, hash: hashPin(newPin, salt) });
+
+  // Un changement de code déconnecte tous les appareils (y compris celui-ci), par sécurité.
+  db.prepare("DELETE FROM sessions").run();
+  res.json({ token: createSession() });
+});
+
+app.post("/api/auth/logout", requireAuth, (req, res) => {
+  const token = (req.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
+  res.json({ ok: true });
+});
 
 // ---------- API ----------
 
@@ -429,7 +523,7 @@ function checkReminder() {
     body = `Tu n'as pas encore choisi ton ${mealLabel.toLowerCase()} d'aujourd'hui !`;
   }
 
-  sendToAll(db, { title: "Menu, s'il te plaît 🍽️", body, icon: "/icons/icon-192.png" });
+  sendToAll(db, { title: "The menu, please 🍽️", body, icon: "/icons/icon-192.png" });
   setSetting("reminder_last_sent", now.dateStr);
 }
 
@@ -465,7 +559,7 @@ function checkPlanning() {
   if (lastSent === now.dateStr) return;
 
   sendToAll(db, {
-    title: "Menu, s'il te plaît 🍽️",
+    title: "The menu, please 🍽️",
     body: "As-tu prévu ta semaine ? 5 min suffisent pour attaquer lundi tranquille.",
     icon: "/icons/icon-192.png",
   });

@@ -1,6 +1,6 @@
 {
-  "name": "Menu, s'il te plaît",
-  "short_name": "Menu stp",
+  "name": "The menu, please",
+  "short_name": "Menu please",
   "description": "Ton assistant repas anti-galère : plan de la semaine, liste de courses, recettes courtes.",
   "start_url": "/",
   "scope": "/",
