@@ -1,18 +1,13 @@
-const CACHE_NAME = "menu-stp-v2";
+const CACHE_NAME = "menu-stp-v3";
 const SHELL_ASSETS = [
   "/",
   "/css/style.css",
   "/js/app.js",
   "/manifest.webmanifest",
-  "/fonts/fredoka-500.ttf",
-  "/fonts/fredoka-600.ttf",
-  "/fonts/fredoka-700.ttf",
-  "/fonts/quicksand-400.ttf",
-  "/fonts/quicksand-500.ttf",
-  "/fonts/quicksand-600.ttf",
-  "/fonts/quicksand-700.ttf",
-  "/fonts/caveat-600.ttf",
-  "/fonts/caveat-700.ttf",
+  "/fonts/archivo-black.woff2",
+  "/fonts/archivo-variable.woff2",
+  "/fonts/space-mono-400.woff2",
+  "/fonts/space-mono-700.woff2",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];

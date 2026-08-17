@@ -31,6 +31,7 @@ const MEAL_LABELS = {
   "petit-dej": "Petit-déj",
   dejeuner: "Déjeuner",
   diner: "Dîner",
+  dessert: "Dessert",
 };
 
 const TAG_LABELS = {
@@ -41,6 +42,13 @@ const TAG_LABELS = {
 };
 
 const WEEKEND_DAYS = ["samedi", "dimanche"];
+
+// Le bonus dessert n'est proposé que le samedi — pas un repas comme les autres,
+// donc pas dans MEALS (qui pilote la boucle jour x repas partout ailleurs).
+function isValidSlot(day, meal) {
+  if (day === "samedi" && meal === "dessert") return true;
+  return DAYS.includes(day) && MEALS.includes(meal);
+}
 
 function roundQty(n) {
   return Math.round(n * 100) / 100;
@@ -174,6 +182,7 @@ function setSetting(key, value) {
 
 const DEFAULT_REMINDER = { enabled: false, time: "17:00", mealType: "diner" };
 const DEFAULT_TISANE = { enabled: false, time: "20:30" };
+const DEFAULT_PLANNING = { enabled: false, time: "19:00" };
 
 // ---------- API ----------
 
@@ -186,41 +195,68 @@ app.get("/api/week", (req, res) => {
   const planByKey = {};
   for (const row of planRows) planByKey[`${row.day}__${row.meal_type}`] = row;
 
-  const week = DAYS.map((day) => ({
-    day,
-    label: DAY_LABELS[day],
-    meals: MEALS.map((meal) => {
-      const key = `${day}__${meal}`;
-      const plan = planByKey[key] || { recipe_id: null, nb_personnes: 2, portion_bonus: 0, cancelled: 0 };
-      return {
-        mealType: meal,
-        label: MEAL_LABELS[meal],
-        options: resolveOptions(day, meal),
-        selected: {
-          recipeId: plan.recipe_id,
-          nbPersonnes: plan.nb_personnes,
-          portionBonus: !!plan.portion_bonus,
-          cancelled: !!plan.cancelled,
-        },
-      };
-    }),
-  }));
+  function buildMeal(day, meal) {
+    const key = `${day}__${meal}`;
+    const plan = planByKey[key] || { recipe_id: null, nb_personnes: meal === "dessert" ? 4 : 2, portion_bonus: 0, cancelled: 0 };
+    return {
+      mealType: meal,
+      label: MEAL_LABELS[meal],
+      options: resolveOptions(day, meal),
+      selected: {
+        recipeId: plan.recipe_id,
+        nbPersonnes: plan.nb_personnes,
+        portionBonus: !!plan.portion_bonus,
+        cancelled: !!plan.cancelled,
+      },
+    };
+  }
+
+  const week = DAYS.map((day) => {
+    const meals = MEALS.map((meal) => buildMeal(day, meal));
+    if (day === "samedi") meals.push(buildMeal(day, "dessert"));
+    return { day, label: DAY_LABELS[day], meals };
+  });
 
   res.json({ week });
 });
 
 app.post("/api/options/:day/:meal/reroll", (req, res) => {
   const { day, meal } = req.params;
-  if (!DAYS.includes(day) || !MEALS.includes(meal)) {
+  if (!isValidSlot(day, meal)) {
     return res.status(400).json({ error: "Jour ou repas invalide." });
   }
   const options = resolveOptions(day, meal, { forceReroll: true });
   res.json({ options });
 });
 
+app.post("/api/options/:day/:meal/zero-effort", (req, res) => {
+  const { day, meal } = req.params;
+  if (!isValidSlot(day, meal)) {
+    return res.status(400).json({ error: "Jour ou repas invalide." });
+  }
+  const favorites = getFavoritesMap();
+  const isWeekend = WEEKEND_DAYS.includes(day);
+  const rows = db.prepare("SELECT id, weekend_only, tags FROM recipes WHERE meal_type = ?").all(meal);
+  const ids = rows
+    .filter((r) => (isWeekend ? true : !r.weekend_only))
+    .filter((r) => favorites[r.id] !== "banned")
+    .filter((r) => JSON.parse(r.tags || "[]").includes("zero-effort"))
+    .map((r) => r.id)
+    .slice(0, 3);
+
+  if (!ids.length) return res.json({ options: [] });
+
+  db.prepare(`
+    INSERT INTO current_options (day, meal_type, recipe_ids) VALUES (?, ?, ?)
+    ON CONFLICT(day, meal_type) DO UPDATE SET recipe_ids = excluded.recipe_ids
+  `).run(day, meal, JSON.stringify(ids));
+
+  res.json({ options: ids.map((id) => getRecipeSummary(id, favorites)).filter(Boolean) });
+});
+
 app.put("/api/plan/:day/:meal", (req, res) => {
   const { day, meal } = req.params;
-  if (!DAYS.includes(day) || !MEALS.includes(meal)) {
+  if (!isValidSlot(day, meal)) {
     return res.status(400).json({ error: "Jour ou repas invalide." });
   }
   const { recipeId = null, nbPersonnes = 2, portionBonus = false, cancelled = false } = req.body || {};
@@ -281,7 +317,7 @@ app.get("/api/shopping-list", (req, res) => {
     const ingredientRows = db
       .prepare("SELECT name, rayon, qty_per_person, unit FROM ingredients WHERE recipe_id = ?")
       .all(plan.recipe_id);
-    const extra = plan.meal_type === "diner" && plan.portion_bonus ? 1 : 0;
+    const extra = (plan.meal_type === "diner" || plan.meal_type === "dejeuner") && plan.portion_bonus ? 1 : 0;
     const portions = plan.nb_personnes + extra;
 
     const recipe = getRecipeSummary(plan.recipe_id);
@@ -355,6 +391,18 @@ app.put("/api/settings/tisane", (req, res) => {
   res.json(value);
 });
 
+app.get("/api/settings/planning", (req, res) => {
+  res.json(getSetting("planning", DEFAULT_PLANNING));
+});
+
+app.put("/api/settings/planning", (req, res) => {
+  const { enabled = false, time = "19:00" } = req.body || {};
+  if (!/^\d{2}:\d{2}$/.test(time)) return res.status(400).json({ error: "Heure invalide (HH:MM)." });
+  const value = { enabled: !!enabled, time };
+  setSetting("planning", value);
+  res.json(value);
+});
+
 // ---------- Boucle de rappels (vérifie chaque minute) ----------
 
 function checkReminder() {
@@ -404,9 +452,30 @@ function checkTisane() {
   setSetting("tisane_last_sent", now.dateStr);
 }
 
+function checkPlanning() {
+  const planning = getSetting("planning", DEFAULT_PLANNING);
+  if (!planning.enabled) return;
+
+  const now = getParisNow();
+  if (now.dayKey !== "dimanche") return;
+  const currentHHMM = `${now.hh}:${now.mm}`;
+  if (currentHHMM !== planning.time) return;
+
+  const lastSent = getSetting("planning_last_sent", null);
+  if (lastSent === now.dateStr) return;
+
+  sendToAll(db, {
+    title: "Menu, s'il te plaît 🍽️",
+    body: "As-tu prévu ta semaine ? 5 min suffisent pour attaquer lundi tranquille.",
+    icon: "/icons/icon-192.png",
+  });
+  setSetting("planning_last_sent", now.dateStr);
+}
+
 setInterval(() => {
   checkReminder();
   checkTisane();
+  checkPlanning();
 }, 60 * 1000);
 
 app.use(express.static(path.join(__dirname, "..", "public")));

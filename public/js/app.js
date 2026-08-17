@@ -1,9 +1,19 @@
 (() => {
   "use strict";
 
-  const MEAL_ICON = { "petit-dej": "☀️", dejeuner: "🥗", diner: "🌙" };
-  const DAY_COLORS = ["terracotta", "sun", "sage", "sky"];
   const JS_DAY_TO_KEY = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+  const CORE_MEALS = ["petit-dej", "dejeuner", "diner"];
+
+  const MEAL_ICON = {
+    "petit-dej": { id: "s-tasse", vb: "0 0 120 90", color: "var(--creme)" },
+    dejeuner: { id: "s-bol", vb: "0 0 120 80", color: "var(--bleu)" },
+    diner: { id: "s-theiere", vb: "0 0 130 90", color: "var(--rouge)" },
+    dessert: { id: "s-croissant", vb: "0 0 130 110", color: "var(--rose)" },
+  };
+
+  const THEME_KEY = "menuStpTheme";
+  const STREAK_KEY = "menuStpStreak";
+  const STREAK_THRESHOLD = 10; // sur 21 créneaux (3 repas x 7 jours), hors dessert bonus
 
   let meta = null;
   let weekData = null;
@@ -28,11 +38,27 @@
     toast.textContent = msg;
     toast.hidden = false;
     clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => { toast.hidden = true; }, 1800);
+    showToast._t = setTimeout(() => { toast.hidden = true; }, 2000);
   }
 
   function todayKey() {
     return JS_DAY_TO_KEY[new Date().getDay()];
+  }
+
+  function iconSvg(mealType) {
+    const m = MEAL_ICON[mealType];
+    return `<svg viewBox="${m.vb}" style="color:${m.color}"><use href="#${m.id}" fill="currentColor"/></svg>`;
+  }
+
+  function pill(text, extraClass) {
+    const span = document.createElement("span");
+    span.className = "pill mono" + (extraClass ? " " + extraClass : "");
+    span.textContent = text;
+    return span;
+  }
+
+  function formatQty(n) {
+    return Number.isInteger(n) ? n : n.toFixed(2).replace(/\.?0+$/, "");
   }
 
   // ============ TABS ============
@@ -42,111 +68,126 @@
         $$(".tab").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
         $$(".view").forEach((v) => (v.hidden = true));
-        const target = $("#" + tab.dataset.view);
-        target.hidden = false;
+        $("#" + tab.dataset.view).hidden = false;
         if (tab.dataset.view === "view-shopping") loadShoppingList();
       });
     });
   }
 
   // ============ WEEK + TODAY VIEWS ============
+  const FR_DATE = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "2-digit", month: "long" });
+
   async function loadWeek() {
     weekData = await api("/api/week");
-    renderWeek();
     renderToday();
+    renderWeek();
+    renderStreak();
+  }
+
+  function renderToday() {
+    $("#today-date").textContent = FR_DATE.format(new Date()).replace(".", "");
+    const key = todayKey();
+    const dayObj = weekData.week.find((d) => d.day === key);
+    const container = $("#today-list");
+    container.innerHTML = "";
+    if (!dayObj) return;
+
+    dayObj.meals.forEach((meal) => {
+      const selectedRecipe = meal.selected.recipeId ? meal.options.find((o) => o.id === meal.selected.recipeId) : null;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "meal-card-btn" + (meal.selected.cancelled ? " is-cancelled" : "");
+
+      const top = document.createElement("div");
+      top.className = "mc-top";
+      const tag = document.createElement("span");
+      tag.className = "mc-tag mono";
+      tag.textContent = meal.label;
+      top.appendChild(tag);
+      const icon = document.createElement("span");
+      icon.className = "mc-icon";
+      icon.innerHTML = iconSvg(meal.mealType).replace(/color:var\(--\w+\)/, "color:var(--bg)");
+      top.appendChild(icon);
+      btn.appendChild(top);
+
+      const name = document.createElement("div");
+      if (meal.selected.cancelled) {
+        name.className = "mc-name";
+        name.textContent = selectedRecipe ? selectedRecipe.name : "Annulé";
+      } else if (selectedRecipe) {
+        name.className = "mc-name";
+        name.textContent = selectedRecipe.name;
+      } else {
+        name.className = "mc-name empty";
+        name.textContent = "à choisir →";
+      }
+      btn.appendChild(name);
+
+      if (selectedRecipe && !meal.selected.cancelled) {
+        const metaRow = document.createElement("div");
+        metaRow.className = "mc-meta mono";
+        metaRow.innerHTML = `<span>${selectedRecipe.prepMinutes} min</span><span>${meal.selected.nbPersonnes} pers.</span>` +
+          (meal.selected.portionBonus ? "<span>+1 lendemain</span>" : "");
+        btn.appendChild(metaRow);
+      }
+
+      btn.addEventListener("click", () => {
+        if (selectedRecipe && !meal.selected.cancelled) {
+          openRecipeSheet(selectedRecipe.id, meal.selected.nbPersonnes);
+        } else {
+          openPicker(dayObj, meal);
+        }
+      });
+      container.appendChild(btn);
+    });
   }
 
   function renderWeek() {
     const container = $("#week-list");
     container.innerHTML = "";
-    weekData.week.forEach((dayObj, i) => {
-      const block = document.createElement("div");
-      block.className = "day-block";
-      block.dataset.color = DAY_COLORS[i % DAY_COLORS.length];
+    const key = todayKey();
 
-      const header = document.createElement("div");
-      header.className = "day-header";
-      header.textContent = dayObj.label;
-      block.appendChild(header);
+    weekData.week.forEach((dayObj) => {
+      const group = document.createElement("div");
+      group.className = "day-group" + (dayObj.day === key ? " is-today" : "");
 
-      dayObj.meals.forEach((meal) => block.appendChild(renderMealRow(dayObj, meal)));
-      container.appendChild(block);
+      const heading = document.createElement("div");
+      heading.className = "day-heading mono";
+      heading.textContent = dayObj.label;
+      group.appendChild(heading);
+
+      dayObj.meals.forEach((meal) => group.appendChild(renderDayRow(dayObj, meal)));
+      container.appendChild(group);
     });
   }
 
-  function renderToday() {
-    const key = todayKey();
-    const dayObj = weekData.week.find((d) => d.day === key);
-    const container = $("#today-list");
-    container.innerHTML = "";
-
-    if (!dayObj) return;
-
-    const block = document.createElement("div");
-    block.className = "day-block";
-    block.dataset.color = DAY_COLORS[weekData.week.indexOf(dayObj) % DAY_COLORS.length];
-
-    const header = document.createElement("div");
-    header.className = "day-header";
-    header.textContent = dayObj.label;
-    block.appendChild(header);
-
-    dayObj.meals.forEach((meal) => block.appendChild(renderMealRow(dayObj, meal)));
-    container.appendChild(block);
-
-    $("#today-subnote").textContent = `tes 3 repas de ${dayObj.label.toLowerCase()}, en un coup d'œil 👀`;
-  }
-
-  function renderMealRow(dayObj, meal) {
+  function renderDayRow(dayObj, meal) {
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "meal-row" + (meal.selected.cancelled ? " is-cancelled" : "");
-    row.dataset.day = dayObj.day;
-    row.dataset.meal = meal.mealType;
+    row.className = "day" + (meal.selected.cancelled ? " is-cancelled" : "");
 
-    const icon = document.createElement("span");
-    icon.className = `meal-icon ${meal.mealType}`;
-    icon.textContent = MEAL_ICON[meal.mealType];
-    row.appendChild(icon);
+    const d = document.createElement("span");
+    d.className = "d";
+    d.textContent = meal.label;
+    row.appendChild(d);
 
-    const info = document.createElement("div");
-    info.className = "meal-info";
-
-    const typeLabel = document.createElement("div");
-    typeLabel.className = "meal-type-label";
-    typeLabel.textContent = meal.label;
-    info.appendChild(typeLabel);
-
-    const choice = document.createElement("div");
-    const selectedRecipe = meal.selected.recipeId
-      ? meal.options.find((o) => o.id === meal.selected.recipeId)
-      : null;
+    const selectedRecipe = meal.selected.recipeId ? meal.options.find((o) => o.id === meal.selected.recipeId) : null;
+    const m = document.createElement("span");
     if (selectedRecipe) {
-      choice.className = "meal-choice";
-      choice.textContent = selectedRecipe.name;
+      m.className = "m";
+      m.textContent = selectedRecipe.name;
     } else {
-      choice.className = "meal-choice empty";
-      choice.textContent = "à choisir →";
+      m.className = "m empty";
+      m.textContent = "à choisir";
     }
-    info.appendChild(choice);
+    row.appendChild(m);
 
-    const metaRow = document.createElement("div");
-    metaRow.className = "meal-meta";
-    if (meal.selected.cancelled) {
-      metaRow.appendChild(pill("🚫 annulé", "bonus"));
-    } else if (selectedRecipe) {
-      metaRow.appendChild(pill(`⏱ ${selectedRecipe.prepMinutes} min`));
-      metaRow.appendChild(pill(`👥 ${meal.selected.nbPersonnes}`));
-      if (meal.selected.portionBonus) metaRow.appendChild(pill("🍱 +1 demain midi", "bonus"));
-    }
-    if (metaRow.children.length) info.appendChild(metaRow);
-
-    row.appendChild(info);
-
-    if (selectedRecipe) {
+    if (selectedRecipe && !meal.selected.cancelled) {
       const jump = document.createElement("span");
       jump.className = "recipe-jump";
-      jump.textContent = "📖";
+      jump.textContent = "›";
+      jump.setAttribute("role", "button");
+      jump.setAttribute("aria-label", "Voir la recette");
       jump.addEventListener("click", (e) => {
         e.stopPropagation();
         openRecipeSheet(selectedRecipe.id, meal.selected.nbPersonnes);
@@ -154,15 +195,63 @@
       row.appendChild(jump);
     }
 
+    const icon = document.createElement("span");
+    icon.className = "day-icon";
+    icon.innerHTML = iconSvg(meal.mealType);
+    row.appendChild(icon);
+
     row.addEventListener("click", () => openPicker(dayObj, meal));
     return row;
   }
 
-  function pill(text, extraClass) {
-    const span = document.createElement("span");
-    span.className = "pill" + (extraClass ? " " + extraClass : "");
-    span.textContent = text;
-    return span;
+  // ============ RÉGULARITÉ (streak, jamais négatif) ============
+  function getISOWeekId(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = (d.getUTCDay() + 6) % 7;
+    d.setUTCDate(d.getUTCDate() - dayNum + 3);
+    const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+    const firstDayNum = (firstThursday.getUTCDay() + 6) % 7;
+    firstThursday.setUTCDate(firstThursday.getUTCDate() - firstDayNum + 3);
+    const weekNum = 1 + Math.round((d - firstThursday) / (7 * 24 * 3600 * 1000));
+    return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+  }
+
+  function countPlannedCoreMeals() {
+    let count = 0;
+    weekData.week.forEach((dayObj) => {
+      dayObj.meals.forEach((meal) => {
+        if (CORE_MEALS.includes(meal.mealType) && meal.selected.recipeId && !meal.selected.cancelled) count++;
+      });
+    });
+    return count;
+  }
+
+  function loadJSON(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; } catch (e) { return fallback; }
+  }
+
+  function updateStreak() {
+    const currentWeek = getISOWeekId(new Date());
+    const state = loadJSON(STREAK_KEY, { lastSeenWeek: null, streak: 0 });
+
+    if (!state.lastSeenWeek) {
+      localStorage.setItem(STREAK_KEY, JSON.stringify({ lastSeenWeek: currentWeek, streak: 0 }));
+      return 0;
+    }
+    if (state.lastSeenWeek === currentWeek) return state.streak;
+
+    const metThreshold = countPlannedCoreMeals() >= STREAK_THRESHOLD;
+    const newStreak = metThreshold ? state.streak + 1 : 0;
+    localStorage.setItem(STREAK_KEY, JSON.stringify({ lastSeenWeek: currentWeek, streak: newStreak }));
+    return newStreak;
+  }
+
+  function renderStreak() {
+    const streak = updateStreak();
+    const badge = $("#streak-badge");
+    if (streak < 1) { badge.hidden = true; return; }
+    badge.hidden = false;
+    badge.textContent = streak === 1 ? "1 semaine de suite planifiée" : `${streak} semaines de suite planifiées`;
   }
 
   // ============ PICKER SHEET ============
@@ -171,24 +260,60 @@
       day: dayObj.day,
       meal: meal.mealType,
       recipeId: meal.selected.recipeId,
-      nbPersonnes: meal.selected.nbPersonnes || 2,
+      nbPersonnes: meal.selected.nbPersonnes || (meal.mealType === "dessert" ? 4 : 2),
       portionBonus: !!meal.selected.portionBonus,
       cancelled: !!meal.selected.cancelled,
     };
 
     $("#picker-day-meal").textContent = `${dayObj.label} · ${meal.label}`;
-    $("#picker-title").textContent = "Choisis ton repas";
+    $("#picker-title").textContent = meal.mealType === "dessert" ? "Choisis ton dessert" : "Choisis ton repas";
     $("#stepper-value").textContent = picker.nbPersonnes;
 
-    const bonusRow = $("#bonus-row");
-    bonusRow.hidden = meal.mealType !== "diner";
+    $("#bonus-row").hidden = meal.mealType === "petit-dej" || meal.mealType === "dessert";
     $("#bonus-toggle").checked = picker.portionBonus;
     $("#cancel-toggle").checked = picker.cancelled;
 
     renderPickerOptions(meal.options);
+    $("#picker-favorites").hidden = true;
+    $("#picker-favorites").innerHTML = "";
+    loadPickerFavorites();
     updateSeeRecipeButton();
+    $("#btn-zero-effort").hidden = meal.mealType === "dessert";
 
     $("#sheet-backdrop").hidden = false;
+  }
+
+  async function loadPickerFavorites() {
+    // On dérive les favoris depuis les options déjà chargées pour ce type de repas ;
+    // si aucune n'est aimée on n'affiche rien (pas d'appel supplémentaire nécessaire).
+    const dayObj = weekData.week.find((d) => d.day === picker.day);
+    const meal = dayObj.meals.find((m) => m.mealType === picker.meal);
+    const loved = (meal.options || []).filter((o) => o.favorite === "loved");
+    renderPickerFavorites(loved);
+  }
+
+  function renderPickerFavorites(loved) {
+    const wrap = $("#picker-favorites");
+    if (!loved.length) { wrap.hidden = true; wrap.innerHTML = ""; return; }
+    wrap.hidden = false;
+    wrap.innerHTML = "";
+
+    const label = document.createElement("p");
+    label.className = "picker-fav-label";
+    label.textContent = "Tes favoris";
+    wrap.appendChild(label);
+
+    const list = document.createElement("div");
+    list.className = "picker-fav-list";
+    loved.forEach((r) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "fav-chip" + (r.id === picker.recipeId ? " selected" : "");
+      chip.textContent = r.name;
+      chip.addEventListener("click", () => selectOption(r.id));
+      list.appendChild(chip);
+    });
+    wrap.appendChild(list);
   }
 
   function renderPickerOptions(options) {
@@ -197,24 +322,24 @@
     options.forEach((opt) => {
       const card = document.createElement("button");
       card.type = "button";
-      card.className = "option-card" + (opt.id === picker.recipeId ? " selected" : "");
+      card.className = "option-card cut-a" + (opt.id === picker.recipeId ? " selected" : "");
       card.dataset.id = opt.id;
 
       if (opt.favorite === "loved") {
         const badge = document.createElement("span");
         badge.className = "fav-badge";
-        badge.textContent = "❤️";
+        badge.innerHTML = '<svg viewBox="0 0 90 120" style="color:var(--rouge)"><use href="#s-fleur" fill="currentColor"/></svg>';
         card.appendChild(badge);
       }
 
       const name = document.createElement("div");
       name.className = "opt-name";
-      name.textContent = (opt.id === picker.recipeId ? "✓ " : "") + opt.name;
+      name.textContent = opt.name;
       card.appendChild(name);
 
       const metaRow = document.createElement("div");
       metaRow.className = "opt-meta";
-      metaRow.appendChild(pill(`⏱ ${opt.prepMinutes} min`));
+      metaRow.appendChild(pill(`${opt.prepMinutes} min`));
       (opt.tags || []).forEach((tag) => metaRow.appendChild(pill(meta.tagLabels[tag] || tag)));
       card.appendChild(metaRow);
 
@@ -238,8 +363,7 @@
   }
 
   function updateSeeRecipeButton() {
-    const btn = $("#btn-see-recipe");
-    btn.hidden = !picker.recipeId;
+    $("#btn-see-recipe").hidden = !picker.recipeId;
   }
 
   async function savePlan() {
@@ -254,17 +378,27 @@
       }),
     });
     await loadWeek();
-    showToast(picker.cancelled ? "Repas annulé ✓" : "Repas enregistré ✓");
+    showToast(picker.cancelled ? "Repas annulé" : "Repas enregistré");
   }
 
   async function handleReroll() {
     const res = await api(`/api/options/${picker.day}/${picker.meal}/reroll`, { method: "POST" });
-    // Met à jour le cache local des options pour ce créneau, puis re-render la picker sans la fermer.
     const dayObj = weekData.week.find((d) => d.day === picker.day);
-    const mealObj = dayObj.meals.find((m) => m.mealType === picker.meal);
-    mealObj.options = res.options;
+    dayObj.meals.find((m) => m.mealType === picker.meal).options = res.options;
     renderPickerOptions(res.options);
-    showToast("Nouvelles options 🔁");
+    showToast("Nouvelles options");
+  }
+
+  async function handleZeroEffort() {
+    const res = await api(`/api/options/${picker.day}/${picker.meal}/zero-effort`, { method: "POST" });
+    if (!res.options.length) {
+      showToast("Pas d'option zéro effort pour ce repas");
+      return;
+    }
+    const dayObj = weekData.week.find((d) => d.day === picker.day);
+    dayObj.meals.find((m) => m.mealType === picker.meal).options = res.options;
+    renderPickerOptions(res.options);
+    showToast("Repas zéro effort");
   }
 
   function initPickerControls() {
@@ -282,6 +416,7 @@
       if (picker.recipeId) openRecipeSheet(picker.recipeId, picker.nbPersonnes);
     });
     $("#btn-reroll").addEventListener("click", handleReroll);
+    $("#btn-zero-effort").addEventListener("click", handleZeroEffort);
   }
 
   let debounceTimer = null;
@@ -299,51 +434,44 @@
     const recipe = await api(`/api/recipes/${recipeId}?personnes=${nbPersonnes}`);
     currentRecipeSheetId = recipeId;
 
-    $("#recipe-eyebrow").textContent = `${meta.mealLabels[recipe.mealType]} · ${recipe.prepMinutes} min · ${nbPersonnes} pers.`;
+    $("#recipe-hero-icon").innerHTML = iconSvg(recipe.mealType).replace(/color:var\(--\w+\)/, "color:var(--bg)");
     $("#recipe-title").textContent = recipe.name;
+    $("#recipe-meta").innerHTML = `<span>${recipe.prepMinutes} min</span><span>${nbPersonnes} pers.</span><span>${meta.mealLabels[recipe.mealType]}</span>`;
     updateFavButtons(recipe.favorite);
 
     const content = $("#recipe-content");
     content.innerHTML = "";
 
-    if (recipe.mealType !== "petit-dej") {
+    if (recipe.mealType !== "petit-dej" && recipe.mealType !== "dessert") {
       const proteinPct = recipe.mealType === "diner" ? 35 : 25;
       const carbPct = recipe.mealType === "diner" ? 15 : 25;
       const bar = document.createElement("div");
       bar.className = "ratio-bar";
-      bar.innerHTML = `
-        <span style="width:50%;background:var(--sage)"></span>
-        <span style="width:${proteinPct}%;background:var(--terracotta)"></span>
-        <span style="width:${carbPct}%;background:var(--sun)"></span>`;
+      bar.innerHTML = `<span style="width:50%;background:var(--bleu)"></span><span style="width:${proteinPct}%;background:var(--rouge)"></span><span style="width:${carbPct}%;background:var(--creme)"></span>`;
       content.appendChild(bar);
-      const legend = document.createElement("div");
-      legend.className = "ratio-legend";
-      legend.textContent = recipe.ratio;
-      content.appendChild(legend);
-    } else {
-      const legend = document.createElement("div");
-      legend.className = "ratio-legend";
-      legend.textContent = "🍳 " + recipe.ratio;
-      content.appendChild(legend);
     }
+    const legend = document.createElement("div");
+    legend.className = "ratio-legend mono";
+    legend.textContent = recipe.ratio;
+    content.appendChild(legend);
 
     if (recipe.spices && recipe.spices.length) {
       const spiceWrap = document.createElement("div");
       spiceWrap.className = "spice-chips";
-      recipe.spices.forEach((s) => spiceWrap.appendChild(pill("🌶 " + s)));
+      recipe.spices.forEach((s) => spiceWrap.appendChild(pill(s)));
       content.appendChild(spiceWrap);
     }
 
     const ingTitle = document.createElement("div");
     ingTitle.className = "recipe-section-title";
-    ingTitle.textContent = `Ingrédients pour ${nbPersonnes} pers.`;
+    ingTitle.textContent = `Ingrédients — ${nbPersonnes} pers.`;
     content.appendChild(ingTitle);
 
     const ingList = document.createElement("ul");
     ingList.className = "ingredient-list";
     recipe.ingredients.forEach((ing) => {
       const li = document.createElement("li");
-      li.innerHTML = `<span>${ing.name}</span><span class="qty">${formatQty(ing.qty)} ${ing.unit}</span>`;
+      li.innerHTML = `<span class="ing-dot"></span><span class="ing-name">${ing.name}</span><span class="qty">${formatQty(ing.qty)} ${ing.unit}</span>`;
       ingList.appendChild(li);
     });
     content.appendChild(ingList);
@@ -365,7 +493,7 @@
     if (recipe.mealType === "diner") {
       const tip = document.createElement("div");
       tip.className = "evening-tip";
-      tip.innerHTML = "🍓 <strong>Encore faim ?</strong> Un bol de fromage blanc 0% (ou skyr) avec une poignée de baies — rassasiant, sans culpabiliser. Et une tisane sans sucre 1h après le dîner aide à calmer le grignotage du soir.";
+      tip.innerHTML = "<strong>Encore faim ?</strong>Un bol de fromage blanc 0% (ou skyr) avec une poignée de baies — rassasiant, sans culpabiliser. Et une tisane sans sucre 1h après le dîner aide à calmer le grignotage du soir.";
       content.appendChild(tip);
     }
 
@@ -386,22 +514,12 @@
     });
     updateFavButtons(res.status);
     await loadWeek();
-    showToast(res.status === "loved" ? "Ajouté aux favoris ❤️" : res.status === "banned" ? "Ne sera plus proposé 🚫" : "Retiré des favoris");
+    showToast(res.status === "loved" ? "Ajouté aux favoris" : res.status === "banned" ? "Ne sera plus proposé" : "Retiré des favoris");
   }
 
   function initFavoriteControls() {
-    $("#btn-love").addEventListener("click", () => {
-      const isActive = $("#btn-love").classList.contains("active");
-      setFavorite(isActive ? null : "loved");
-    });
-    $("#btn-ban").addEventListener("click", () => {
-      const isActive = $("#btn-ban").classList.contains("active");
-      setFavorite(isActive ? null : "banned");
-    });
-  }
-
-  function formatQty(n) {
-    return Number.isInteger(n) ? n : n.toFixed(2).replace(/\.?0+$/, "");
+    $("#btn-love").addEventListener("click", () => setFavorite($("#btn-love").classList.contains("active") ? null : "loved"));
+    $("#btn-ban").addEventListener("click", () => setFavorite($("#btn-ban").classList.contains("active") ? null : "banned"));
   }
 
   // ============ SHOPPING VIEW ============
@@ -420,11 +538,7 @@
     container.innerHTML = "";
 
     if (data.isEmpty) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div style="font-size:2.2rem">🧺</div>
-          <p class="hand-note">pas encore de plan cette semaine —<br/>va choisir tes repas dans l'onglet "Ma semaine" !</p>
-        </div>`;
+      container.innerHTML = `<div class="empty-state"><p class="hand-note mono">pas encore de plan cette semaine — va choisir tes repas dans l'onglet "Jour" !</p></div>`;
       $("#shopping-progress").hidden = true;
       $("#btn-share-list").hidden = true;
       return;
@@ -440,30 +554,20 @@
       header.textContent = rayonGroup.rayon;
       block.appendChild(header);
 
-      const itemsWrap = document.createElement("div");
-      itemsWrap.className = "rayon-items";
-
       rayonGroup.items.forEach((item) => {
         const key = checkKey(item.name, item.unit);
         const isChecked = localStorage.getItem(key) === "1";
-
         const row = document.createElement("div");
         row.className = "item-row" + (isChecked ? " checked" : "");
-        row.innerHTML = `
-          <span class="item-checkbox">${isChecked ? "✓" : ""}</span>
-          <span class="item-label">${item.name}</span>
-          <span class="item-qty">${formatQty(item.qty)} ${item.unit}</span>`;
+        row.innerHTML = `<span class="item-checkbox"></span><span class="item-label">${item.name}</span><span class="item-qty">${formatQty(item.qty)} ${item.unit}</span>`;
         row.addEventListener("click", () => {
           const nowChecked = !row.classList.contains("checked");
           row.classList.toggle("checked", nowChecked);
-          row.querySelector(".item-checkbox").textContent = nowChecked ? "✓" : "";
           localStorage.setItem(key, nowChecked ? "1" : "0");
           updateProgress();
         });
-        itemsWrap.appendChild(row);
+        block.appendChild(row);
       });
-
-      block.appendChild(itemsWrap);
       container.appendChild(block);
     });
 
@@ -476,19 +580,17 @@
     const checked = $$(".item-row.checked").length;
     const el = $("#shopping-progress");
     el.hidden = total === 0;
-    el.textContent = checked === total && total > 0
-      ? `🎉 tout est coché, direction les fourneaux !`
-      : `${checked}/${total} cochés`;
+    el.textContent = checked === total && total > 0 ? `tout est coché, direction les fourneaux !` : `${checked}/${total} cochés`;
   }
 
   function buildShareText() {
     if (!lastShoppingData || lastShoppingData.isEmpty) return "";
-    const lines = ["🍽️ Liste de courses — Menu, s'il te plaît", ""];
+    const lines = ["Liste de courses — Menu, s'il te plaît", ""];
     lastShoppingData.rayons.forEach((group) => {
       lines.push(`— ${group.rayon} —`);
       group.items.forEach((item) => {
         const checked = localStorage.getItem(checkKey(item.name, item.unit)) === "1";
-        lines.push(`${checked ? "☑" : "☐"} ${item.name} — ${formatQty(item.qty)} ${item.unit}`);
+        lines.push(`${checked ? "[x]" : "[ ]"} ${item.name} — ${formatQty(item.qty)} ${item.unit}`);
       });
       lines.push("");
     });
@@ -498,23 +600,37 @@
   async function shareShoppingList() {
     const text = buildShareText();
     if (!text) return;
+
     if (navigator.share) {
+      try { await navigator.share({ title: "Liste de courses", text }); return; }
+      catch (e) { if (e.name === "AbortError") return; }
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
       try {
-        await navigator.share({ title: "Liste de courses", text });
+        await navigator.clipboard.writeText(text);
+        showToast("Liste copiée dans le presse-papier");
         return;
-      } catch (e) {
-        if (e.name === "AbortError") return;
-      }
+      } catch (e) { /* repli ci-dessous */ }
     }
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast("Liste copiée dans le presse-papier 📋");
-    } catch (e) {
-      showToast("Impossible de copier la liste 😕");
-    }
+
+    showShareFallback(text);
   }
 
-  // ============ RÉGLAGES / RAPPELS ============
+  function showShareFallback(text) {
+    const ta = $("#share-textarea");
+    ta.value = text;
+    $("#sheet-backdrop-share").hidden = false;
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.select();
+      try {
+        if (document.execCommand("copy")) showToast("Copié dans le presse-papier");
+      } catch (e) { /* l'utilisateur copiera à la main, le texte est sélectionné */ }
+    });
+  }
+
+  // ============ RÉGLAGES ============
   function urlBase64ToUint8Array(base64String) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
     const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -523,15 +639,18 @@
   }
 
   async function openSettings() {
-    const [reminder, tisane] = await Promise.all([
+    const [reminder, tisane, planning] = await Promise.all([
       api("/api/settings/reminder"),
       api("/api/settings/tisane"),
+      api("/api/settings/planning"),
     ]);
     $("#reminder-enabled").checked = reminder.enabled;
     $("#reminder-time").value = reminder.time;
     $("#reminder-meal").value = reminder.mealType;
     $("#tisane-enabled").checked = tisane.enabled;
     $("#tisane-time").value = tisane.time;
+    $("#planning-enabled").checked = planning.enabled;
+    $("#planning-time").value = planning.time;
     $("#sheet-backdrop-settings").hidden = false;
   }
 
@@ -565,12 +684,8 @@
     const mealType = $("#reminder-meal").value;
 
     if (enabled) {
-      try {
-        await ensurePushSubscription();
-      } catch (e) {
-        showToast(e.message);
-        return;
-      }
+      try { await ensurePushSubscription(); }
+      catch (e) { showToast(e.message); return; }
     }
 
     await api("/api/settings/reminder", {
@@ -578,7 +693,7 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled, time, mealType }),
     });
-    showToast(enabled ? "Rappel activé ✓" : "Rappel désactivé");
+    showToast(enabled ? "Rappel activé" : "Rappel désactivé");
   }
 
   async function saveTisane() {
@@ -586,12 +701,8 @@
     const time = $("#tisane-time").value || "20:30";
 
     if (enabled) {
-      try {
-        await ensurePushSubscription();
-      } catch (e) {
-        showToast(e.message);
-        return;
-      }
+      try { await ensurePushSubscription(); }
+      catch (e) { showToast(e.message); return; }
     }
 
     await api("/api/settings/tisane", {
@@ -599,13 +710,45 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled, time }),
     });
-    showToast(enabled ? "Rituel tisane activé ✓" : "Rituel tisane désactivé");
+    showToast(enabled ? "Rituel tisane activé" : "Rituel tisane désactivé");
+  }
+
+  async function savePlanning() {
+    const enabled = $("#planning-enabled").checked;
+    const time = $("#planning-time").value || "19:00";
+
+    if (enabled) {
+      try { await ensurePushSubscription(); }
+      catch (e) { showToast(e.message); return; }
+    }
+
+    await api("/api/settings/planning", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled, time }),
+    });
+    showToast(enabled ? "Rappel dimanche activé" : "Rappel dimanche désactivé");
   }
 
   function initSettings() {
     $("#btn-settings").addEventListener("click", openSettings);
     $("#btn-save-reminder").addEventListener("click", saveReminder);
     $("#btn-save-tisane").addEventListener("click", saveTisane);
+    $("#btn-save-planning").addEventListener("click", savePlanning);
+  }
+
+  // ============ THÈME ============
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_KEY, theme);
+    $("#btn-theme-dark").classList.toggle("active", theme === "dark");
+    $("#btn-theme-light").classList.toggle("active", theme === "light");
+  }
+
+  function initTheme() {
+    applyTheme(localStorage.getItem(THEME_KEY) || "dark");
+    $("#btn-theme-dark").addEventListener("click", () => applyTheme("dark"));
+    $("#btn-theme-light").addEventListener("click", () => applyTheme("light"));
   }
 
   // ============ SHEET CLOSE HANDLERS ============
@@ -613,13 +756,15 @@
     $("[data-close-sheet]").addEventListener("click", () => { $("#sheet-backdrop").hidden = true; });
     $("[data-close-recipe]").addEventListener("click", () => { $("#sheet-backdrop-recipe").hidden = true; });
     $("[data-close-settings]").addEventListener("click", () => { $("#sheet-backdrop-settings").hidden = true; });
-    [$("#sheet-backdrop"), $("#sheet-backdrop-recipe"), $("#sheet-backdrop-settings")].forEach((backdrop) => {
+    $("[data-close-share]").addEventListener("click", () => { $("#sheet-backdrop-share").hidden = true; });
+    [$("#sheet-backdrop"), $("#sheet-backdrop-recipe"), $("#sheet-backdrop-settings"), $("#sheet-backdrop-share")].forEach((backdrop) => {
       backdrop.addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
     });
   }
 
   // ============ INIT ============
   async function init() {
+    initTheme();
     meta = await api("/api/meta");
     initTabs();
     initPickerControls();
