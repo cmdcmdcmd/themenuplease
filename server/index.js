@@ -2,7 +2,6 @@ const express = require("express");
 const path = require("node:path");
 const { db, DAYS, MEALS } = require("./db");
 const { vapidKeys, sendToAll, getParisNow, getCurrentSeason } = require("./push");
-const { weekOptions } = require("./seed/weekOptions");
 const { PIN_REGEX, makeSalt, hashPin, verifyPin, makeToken } = require("./auth");
 
 const app = express();
@@ -154,31 +153,35 @@ function resolveOptions(day, meal, { forceReroll = false } = {}) {
   const favorites = getFavoritesMap();
   const season = getCurrentSeason();
   const seasonMap = getSeasonMap();
-  const defaultIds = weekOptions[meal][day];
 
-  const overrideRow = forceReroll
-    ? null
-    : db.prepare("SELECT recipe_ids FROM current_options WHERE day = ? AND meal_type = ?").get(day, meal);
+  const overrideRow = db
+    .prepare("SELECT recipe_ids FROM current_options WHERE day = ? AND meal_type = ?")
+    .get(day, meal);
+  const currentIds = overrideRow ? JSON.parse(overrideRow.recipe_ids) : [];
 
-  let baseIds = overrideRow ? JSON.parse(overrideRow.recipe_ids) : defaultIds;
-  let ids = baseIds.filter((id) => favorites[id] !== "banned" && isInSeason(seasonMap[id], season));
-
+  let ids;
   if (forceReroll) {
-    // Une vraie roulette : on exclut aussi les options actuellement affichées.
-    const excludeIds = baseIds;
-    const pool = pickEligiblePool(meal, day, excludeIds, favorites);
+    // Une vraie roulette : on exclut les options actuellement affichées.
+    const pool = pickEligiblePool(meal, day, currentIds, favorites);
     ids = pool.slice(0, 3);
     if (ids.length < 3) {
-      // Pool trop petit (ex. week-end) : on ré-autorise les anciennes options non bannies.
-      const fallback = baseIds.filter((id) => favorites[id] !== "banned" && !ids.includes(id));
+      // Pool trop petit une fois l'exclusion appliquée : on complète sans exclure.
+      const fallback = pickEligiblePool(meal, day, [], favorites).filter((id) => !ids.includes(id));
       ids = ids.concat(fallback).slice(0, 3);
     }
-  } else if (ids.length < 3) {
-    const pool = pickEligiblePool(meal, day, ids, favorites);
-    ids = ids.concat(pool.slice(0, 3 - ids.length));
+  } else if (overrideRow) {
+    ids = currentIds.filter((id) => favorites[id] !== "banned" && isInSeason(seasonMap[id], season));
+    if (ids.length < 3) {
+      const pool = pickEligiblePool(meal, day, ids, favorites);
+      ids = ids.concat(pool.slice(0, 3 - ids.length));
+    }
+  } else {
+    // Premier affichage de ce créneau : tirage aléatoire dans le pool éligible
+    // (saison + week-end déjà filtrés), pas une liste fixe toujours identique.
+    ids = pickEligiblePool(meal, day, [], favorites).slice(0, 3);
   }
 
-  const changed = forceReroll || JSON.stringify(ids) !== JSON.stringify(baseIds);
+  const changed = forceReroll || !overrideRow || JSON.stringify(ids) !== JSON.stringify(currentIds);
   if (changed) {
     db.prepare(`
       INSERT INTO current_options (day, meal_type, recipe_ids) VALUES (?, ?, ?)
