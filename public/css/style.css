@@ -4,34 +4,34 @@
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-400.woff2') format('woff2'); font-weight:400; font-display:swap; }
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-700.woff2') format('woff2'); font-weight:700; font-display:swap; }
 
-/* ============ TOKENS — variante Nuit (défaut) — palette "SABF pop" ============ */
+/* ============ TOKENS — variante Nuit (défaut) — palette "Mównica" ============ */
 :root{
-  --bg:#1B5C38;
-  --bleu:#7EC1E0;
-  --rouge:#E8862E;
-  --creme:#F4EEDD;
-  --rose:#B23A70;
-  --beige:#F4EEDD;
-  --pole-light:#F4EEDD;
-  --pole-dark:#1B5C38;
-  --divider-rgb:244,238,221;
+  --bg:#1A3A42;
+  --bleu:#C9A227;
+  --rouge:#D4522E;
+  --creme:#B8B8B0;
+  --rose:#5C1F2E;
+  --beige:#B8B8B0;
+  --pole-light:#B8B8B0;
+  --pole-dark:#1A3A42;
+  --divider-rgb:184,184,176;
 
   --font-display:'Archivo Black', sans-serif;
   --font-body:'Archivo', sans-serif;
   --font-mono:'Space Mono', monospace;
 }
 
-/* ============ TOKENS — variante Papier — palette "SABF pop" ============ */
+/* ============ TOKENS — variante Papier — palette "Mównica" ============ */
 :root[data-theme="light"]{
-  --bg:#F0B8D0;
-  --bleu:#6B4E96;
-  --rouge:#A2286B;
-  --creme:#7A222B;
-  --rose:#E8B923;
-  --beige:#7A222B;
-  --pole-light:#F0B8D0;
-  --pole-dark:#7A222B;
-  --divider-rgb:122,34,43;
+  --bg:#E8A87A;
+  --bleu:#5C1F2E;
+  --rouge:#1D4A52;
+  --creme:#5C1F2E;
+  --rose:#C98FA0;
+  --beige:#5C1F2E;
+  --pole-light:#E8A87A;
+  --pole-dark:#5C1F2E;
+  --divider-rgb:92,31,46;
 }
 
 *{ box-sizing:border-box; }
