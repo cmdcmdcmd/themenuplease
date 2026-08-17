@@ -42,6 +42,7 @@ body{
   color:var(--creme);
   -webkit-font-smoothing:antialiased;
   min-height:100vh;
+  overflow-x:hidden;
 }
 button, input, select{ font-family:inherit; }
 button{ cursor:pointer; }
@@ -70,7 +71,12 @@ p{ margin:0; }
 .app{ max-width:480px; margin:0 auto; display:flex; flex-direction:column; min-height:100vh; padding-bottom:104px; }
 
 /* ============ TOPBAR ============ */
-.topbar{ padding:26px 20px 18px; position:relative; }
+.topbar{
+  padding:26px 20px 18px; position:sticky; top:0; z-index:30;
+  background:var(--bg); border-bottom:2px solid rgba(var(--divider-rgb),0);
+  transition:border-color .2s ease;
+}
+.topbar.is-scrolled{ border-bottom-color:rgba(var(--divider-rgb),.14); }
 .topbar-title{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
 .topbar h1{
   font-family:var(--font-display); font-size:1.9rem; line-height:.95;
@@ -344,8 +350,12 @@ p{ margin:0; }
   text-transform:uppercase; opacity:.7; margin-bottom:8px;
 }
 .settings-field input, .settings-field select{
-  width:100%; border:2px solid var(--creme); background:transparent; color:var(--creme);
+  width:100%; min-width:0; max-width:100%; border:2px solid var(--creme); background:transparent; color:var(--creme);
   padding:10px 12px; font-family:var(--font-body); font-weight:600; font-size:1rem;
+}
+.settings-field input[type="time"]{
+  /* iOS rend le contrôle heure plus large que sa boîte CSS si on ne force pas ce minimum. */
+  min-width:0; font-size:.92rem; padding:10px 8px;
 }
 .settings-field select option{ background:var(--bg); }
 .settings-note{ margin-top:14px; font-family:var(--font-mono); font-size:.76rem; opacity:.6; line-height:1.5; }

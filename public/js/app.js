@@ -938,9 +938,17 @@
     }
   }
 
+  function initStickyHeader() {
+    const topbar = $(".topbar");
+    const onScroll = () => topbar.classList.toggle("is-scrolled", window.scrollY > 4);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+  }
+
   async function init() {
     initTheme();
     initLockScreen();
+    initStickyHeader();
 
     if (authToken) {
       try { await bootApp(); } catch (e) { /* api() a déjà affiché le verrou en cas de 401 */ }
