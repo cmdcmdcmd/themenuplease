@@ -1,4 +1,4 @@
-const CACHE_NAME = "menu-stp-v5";
+const CACHE_NAME = "menu-stp-v6";
 const SHELL_ASSETS = [
   "/",
   "/css/style.css",
