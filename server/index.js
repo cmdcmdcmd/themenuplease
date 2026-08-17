@@ -509,7 +509,12 @@ app.patch("/api/recipes/:id/favorite", (req, res) => {
 app.get("/api/shopping-list", (req, res) => {
   const planRows = db.prepare("SELECT * FROM weekly_plan WHERE recipe_id IS NOT NULL AND cancelled = 0").all();
 
+  // Clé sans le rayon : un même ingrédient peut être classé dans des rayons différents
+  // selon la recette d'où il vient (incohérence de données) ; le fusionner uniquement
+  // sur nom+unité évite d'afficher deux lignes pour le même ingrédient. Le rayon
+  // d'affichage retenu est celui de la première occurrence rencontrée.
   const aggregate = new Map();
+  const rayonByKey = new Map();
   const usedRecipes = [];
 
   for (const plan of planRows) {
@@ -523,14 +528,16 @@ app.get("/api/shopping-list", (req, res) => {
     usedRecipes.push({ day: plan.day, mealType: plan.meal_type, recipe, nbPersonnes: plan.nb_personnes, portionBonus: !!plan.portion_bonus });
 
     for (const ing of ingredientRows) {
-      const key = `${ing.name}|${ing.unit}|${ing.rayon}`;
+      const key = `${ing.name}|${ing.unit}`;
       aggregate.set(key, (aggregate.get(key) || 0) + ing.qty_per_person * portions);
+      if (!rayonByKey.has(key)) rayonByKey.set(key, ing.rayon);
     }
   }
 
   const byRayon = {};
   for (const [key, qty] of aggregate.entries()) {
-    const [name, unit, rayon] = key.split("|");
+    const [name, unit] = key.split("|");
+    const rayon = rayonByKey.get(key);
     if (!byRayon[rayon]) byRayon[rayon] = [];
     byRayon[rayon].push({ name, unit, qty: roundQty(qty) });
   }

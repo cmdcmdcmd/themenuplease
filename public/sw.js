@@ -1,4 +1,4 @@
-const CACHE_NAME = "menu-stp-v4";
+const CACHE_NAME = "menu-stp-v5";
 const SHELL_ASSETS = [
   "/",
   "/css/style.css",
@@ -8,8 +8,11 @@ const SHELL_ASSETS = [
   "/fonts/archivo-variable.woff2",
   "/fonts/space-mono-400.woff2",
   "/fonts/space-mono-700.woff2",
+  "/icons/favicon-32.png",
+  "/icons/apple-touch-icon.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/icons/icon-maskable-512.png",
 ];
 
 self.addEventListener("install", (event) => {

@@ -951,6 +951,11 @@
   }
 
   async function init() {
+    // iOS/Safari restaure parfois la position de scroll d'une session précédente
+    // au (re)lancement de la PWA, ce qui coupe le haut de l'écran "Aujourd'hui".
+    window.scrollTo(0, 0);
+    window.addEventListener("pageshow", (e) => { if (e.persisted) window.scrollTo(0, 0); });
+
     initTheme();
     initLockScreen();
     initStickyHeader();
