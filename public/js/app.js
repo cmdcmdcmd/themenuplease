@@ -357,6 +357,16 @@
       (opt.tags || []).forEach((tag) => metaRow.appendChild(pill(meta.tagLabels[tag] || tag)));
       card.appendChild(metaRow);
 
+      if (opt.id === picker.recipeId) {
+        const clearBtn = document.createElement("span");
+        clearBtn.className = "opt-clear";
+        clearBtn.textContent = "×";
+        clearBtn.setAttribute("role", "button");
+        clearBtn.setAttribute("aria-label", "Retirer ce choix");
+        clearBtn.addEventListener("click", (e) => { e.stopPropagation(); clearChoice(); });
+        card.appendChild(clearBtn);
+      }
+
       card.addEventListener("click", () => selectOption(opt.id));
       wrap.appendChild(card);
     });
@@ -378,7 +388,6 @@
 
   function updateSeeRecipeButton() {
     $("#btn-see-recipe").hidden = !picker.recipeId;
-    $("#btn-clear-choice").hidden = !picker.recipeId;
   }
 
   async function clearChoice() {
@@ -441,7 +450,6 @@
     $("#btn-see-recipe").addEventListener("click", () => {
       if (picker.recipeId) openRecipeSheet(picker.recipeId, picker.nbPersonnes);
     });
-    $("#btn-clear-choice").addEventListener("click", clearChoice);
     $("#btn-reroll").addEventListener("click", handleReroll);
     $("#btn-zero-effort").addEventListener("click", handleZeroEffort);
   }

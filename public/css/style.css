@@ -184,7 +184,6 @@ p{ margin:0; }
   text-decoration:underline; text-underline-offset:3px;
 }
 .btn-clear-choice:hover, .btn-clear-choice:active{ opacity:.75; color:var(--rouge); }
-.btn-clear-choice[hidden]{ display:none; }
 .shopping-progress{
   font-family:var(--font-mono); font-size:.78rem; letter-spacing:.06em; color:var(--bleu); text-align:center;
 }
@@ -243,6 +242,13 @@ p{ margin:0; }
   background:var(--bg); border:2px solid var(--creme); display:flex; align-items:center; justify-content:center;
 }
 .fav-badge svg{ width:14px; height:14px; }
+.opt-clear{
+  position:absolute; top:8px; right:10px; width:26px; height:26px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-mono); font-size:1.15rem; font-weight:700; line-height:1;
+  color:inherit; opacity:.6; cursor:pointer;
+}
+.opt-clear:hover, .opt-clear:active{ opacity:1; }
 
 .btn-reroll{ width:100%; margin-bottom:16px; }
 
