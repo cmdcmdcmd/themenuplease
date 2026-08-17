@@ -4,13 +4,13 @@
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-400.woff2') format('woff2'); font-weight:400; font-display:swap; }
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-700.woff2') format('woff2'); font-weight:700; font-display:swap; }
 
-/* ============ TOKENS — variante Nuit (défaut) — palette "Ganeau" (vert + bleu) ============ */
+/* ============ TOKENS — variante Nuit (défaut) — palette "Ganeau" (côté vert/menthe) ============ */
 :root{
   --bg:#3A6B3A;
-  --bleu:#A3C0EC;
+  --bleu:#BCE8DC;
   --rouge:#E8A888;
   --creme:#BCE8DC;
-  --rose:#3A5FA0;
+  --rose:#B8623E;
   --beige:#BCE8DC;
   --pole-light:#BCE8DC;
   --pole-dark:#3A6B3A;
@@ -406,7 +406,8 @@ p{ margin:0; }
 .pill{
   display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:.68rem;
   letter-spacing:.06em; text-transform:uppercase; font-weight:700;
-  padding:6px 11px; background:var(--bleu); color:var(--bg); transform:rotate(-1deg);
+  padding:5px 10px; background:var(--bleu); color:var(--bg); transform:rotate(-1deg);
+  border:1.5px solid var(--bg);
 }
 .pill:nth-child(2n){ transform:rotate(1deg); }
 .pill:nth-child(3n+2){ background:var(--rouge); color:var(--pole-light); transform:rotate(-.6deg); }
