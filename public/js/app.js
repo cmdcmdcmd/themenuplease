@@ -881,7 +881,16 @@
   }
 
   function hideLock() {
+    // Le focus programmatique du champ PIN ouvre le clavier virtuel ; sur iOS, ça
+    // fait défiler le document sous-jacent même à travers un overlay position:fixed,
+    // et ce décalage persiste après la fermeture du clavier. On force le blur (pour
+    // lancer la fermeture du clavier tout de suite) puis on recale le scroll, une
+    // fois immédiatement et une fois après l'animation de fermeture du clavier.
+    $("#lock-pin").blur();
+    $("#lock-pin-confirm").blur();
     $("#lock-screen").hidden = true;
+    window.scrollTo(0, 0);
+    setTimeout(() => window.scrollTo(0, 0), 350);
   }
 
   function showLockError(msg) {
