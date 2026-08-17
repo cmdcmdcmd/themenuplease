@@ -4,34 +4,34 @@
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-400.woff2') format('woff2'); font-weight:400; font-display:swap; }
 @font-face { font-family:'Space Mono'; src:url('/fonts/space-mono-700.woff2') format('woff2'); font-weight:700; font-display:swap; }
 
-/* ============ TOKENS — variante Nuit (défaut) — palette "café" ============ */
+/* ============ TOKENS — variante Nuit (défaut) — palette "SABF pop" ============ */
 :root{
-  --bg:#42302D;
-  --bleu:#EFE3C4;
-  --rouge:#EA662C;
-  --creme:#EFE3C4;
-  --rose:#26422A;
-  --beige:#EFE3C4;
-  --pole-light:#EFE3C4;
-  --pole-dark:#42302D;
-  --divider-rgb:239,227,196;
+  --bg:#1B5C38;
+  --bleu:#7EC1E0;
+  --rouge:#E8862E;
+  --creme:#F4EEDD;
+  --rose:#B23A70;
+  --beige:#F4EEDD;
+  --pole-light:#F4EEDD;
+  --pole-dark:#1B5C38;
+  --divider-rgb:244,238,221;
 
   --font-display:'Archivo Black', sans-serif;
   --font-body:'Archivo', sans-serif;
   --font-mono:'Space Mono', monospace;
 }
 
-/* ============ TOKENS — variante Papier — palette "glace" ============ */
+/* ============ TOKENS — variante Papier — palette "SABF pop" ============ */
 :root[data-theme="light"]{
-  --bg:#FFEDE3;
-  --bleu:#49261D;
-  --rouge:#FB4E01;
-  --creme:#49261D;
-  --rose:#CBE7F7;
-  --beige:#49261D;
-  --pole-light:#FFEDE3;
-  --pole-dark:#49261D;
-  --divider-rgb:73,38,29;
+  --bg:#F0B8D0;
+  --bleu:#6B4E96;
+  --rouge:#A2286B;
+  --creme:#7A222B;
+  --rose:#E8B923;
+  --beige:#7A222B;
+  --pole-light:#F0B8D0;
+  --pole-dark:#7A222B;
+  --divider-rgb:122,34,43;
 }
 
 *{ box-sizing:border-box; }
