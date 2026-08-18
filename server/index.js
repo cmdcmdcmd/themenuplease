@@ -521,7 +521,9 @@ L'utilisateur va te donner en vrac, en langage libre, ce qu'il lui reste dans le
 Utilise ces féculents de base librement dans tes 3 recettes (pas besoin qu'ils soient mentionnés par l'utilisateur) — la plupart des foyers en ont toujours sous la main.
 
 Contraintes strictes :
-- N'utilise QUE les ingrédients donnés par l'utilisateur + les basiques de placard ci-dessus (féculents + condiments/assaisonnement). N'invente aucun ingrédient supplémentaire non mentionné et non basique.
+- N'utilise QUE les ingrédients donnés par l'utilisateur + les basiques de placard ci-dessus (féculents + condiments/assaisonnement). N'invente et n'ajoute JAMAIS un ingrédient qui ne soit ni cité par l'utilisateur ni dans cette liste — en particulier aucune viande, poisson, charcuterie, œuf, fromage ou produit laitier qui ne serait pas explicitement donné par l'utilisateur : ce ne sont pas des basiques de placard, même s'ils semblent courants.
+- "Farine" dans les basiques veut dire de la farine crue à cuisiner (pour épaissir, paner, faire des crêpes/galettes simples) — ça ne veut PAS dire une pâte à tarte/pâte brisée/pâte feuilletée toute prête. Ne propose une tarte, quiche ou pâtisserie que si l'utilisateur a explicitement une pâte dans sa liste.
+- Chaque recette doit être un plat cohérent et réellement appétissant avec les ingrédients disponibles — n'assemble pas des ingrédients juste pour "tout utiliser" si la combinaison ne fait pas un plat sensé. Si tu ne peux pas faire un plat cohérent avec certains ingrédients de la liste de l'utilisateur, laisse-les simplement de côté dans cette recette plutôt que de forcer une association bizarre.
 - Difficulté 1 ou 2 uniquement (1 = très simple, ~10-15 min, très peu d'étapes ; 2 = simple, ~20-30 min, quelques étapes) — jamais plus complexe, jamais de technique avancée.
 - Logique nutritionnelle TDAH : privilégie les protéines (précurseurs de dopamine), les fibres, et évite les sucres rapides isolés qui provoquent des pics puis chutes de glycémie (aggravant les difficultés de concentration) ; assiette copieuse mais pas lourde.
 - Intitulés courts et clairs, sans jargon.
@@ -645,9 +647,32 @@ function slugify(s) {
     .slice(0, 40) || "recette";
 }
 
+// Repas cible selon l'heure : avant 9h le petit-déj n'est pas encore passé, avant
+// 14h on vise le déjeuner, sinon le dîner du soir.
+function fridgeTargetMealType() {
+  const hour = Number(getParisNow().hh);
+  if (hour < 9) return "petit-dej";
+  if (hour < 14) return "dejeuner";
+  return "diner";
+}
+
+// Premier créneau libre (sans recette, ou annulé) pour ce type de repas, à partir
+// d'aujourd'hui puis en avançant jour par jour sur le reste de la semaine.
+function findNextAvailableSlot(mealType) {
+  const startIdx = DAYS.indexOf(getParisNow().dayKey);
+  for (let i = 0; i < DAYS.length; i++) {
+    const day = DAYS[(startIdx + i) % DAYS.length];
+    const row = db.prepare("SELECT recipe_id, cancelled FROM weekly_plan WHERE day = ? AND meal_type = ?").get(day, mealType);
+    if (!row || !row.recipe_id || row.cancelled) return day;
+  }
+  return null;
+}
+
 app.post("/api/fridge/keep", (req, res) => {
   const r = req.body;
   if (!validateFridgeRecipe(r)) return res.status(400).json({ error: "Recette invalide." });
+
+  const mealType = fridgeTargetMealType();
 
   const exists = (rid) => !!db.prepare("SELECT 1 FROM recipes WHERE id = ?").get(rid);
   let id = `frigo-${slugify(r.nom)}`;
@@ -659,10 +684,11 @@ app.post("/api/fridge/keep", (req, res) => {
 
   db.prepare(`
     INSERT INTO recipes (id, name, meal_type, prep_minutes, weekend_only, ratio, tags, spices, steps, inspiration, season)
-    VALUES (?, ?, 'diner', ?, 0, ?, ?, '[]', ?, ?, '[]')
+    VALUES (?, ?, ?, ?, 0, ?, ?, '[]', ?, ?, '[]')
   `).run(
     id,
     r.nom.trim(),
+    mealType,
     Math.round(r.temps_min),
     r.atouts_tdah.trim(),
     JSON.stringify(["frigo-ia", `difficulte-${r.difficulte}`]),
@@ -678,7 +704,16 @@ app.post("/api/fridge/keep", (req, res) => {
     insertIngredient.run(id, ing.name.trim(), ing.rayon, ing.qty_per_person, ing.unit.trim());
   }
 
-  res.json({ ok: true, id });
+  const slotDay = findNextAvailableSlot(mealType);
+  if (slotDay) {
+    db.prepare(`
+      INSERT INTO weekly_plan (day, meal_type, recipe_id, nb_personnes, portion_bonus, cancelled)
+      VALUES (?, ?, ?, 2, 0, 0)
+      ON CONFLICT(day, meal_type) DO UPDATE SET recipe_id = excluded.recipe_id, cancelled = 0
+    `).run(slotDay, mealType, id);
+  }
+
+  res.json({ ok: true, id, planned: slotDay ? { day: slotDay, meal: mealType } : null });
 });
 
 app.get("/api/shopping-list", (req, res) => {

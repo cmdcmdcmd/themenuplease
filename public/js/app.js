@@ -943,12 +943,12 @@
     const name = document.createElement("h4");
     name.className = "fridge-card-name";
     name.textContent = recipe.nom;
-    const meta = document.createElement("div");
-    meta.className = "fridge-card-meta";
-    meta.appendChild(pill(`${recipe.temps_min} min`));
-    meta.appendChild(pill(`Difficulté ${recipe.difficulte}`));
+    const metaRow = document.createElement("div");
+    metaRow.className = "fridge-card-meta";
+    metaRow.appendChild(pill(`${recipe.temps_min} min`));
+    metaRow.appendChild(pill(`Difficulté ${recipe.difficulte}`));
     top.appendChild(name);
-    top.appendChild(meta);
+    top.appendChild(metaRow);
     card.appendChild(top);
 
     const tip = document.createElement("p");
@@ -993,14 +993,19 @@
       keepBtn.disabled = true;
       keepBtn.textContent = "…";
       try {
-        await api("/api/fridge/keep", {
+        const { planned } = await api("/api/fridge/keep", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(recipe),
         });
         keepBtn.textContent = "Ajoutée ✓";
         keepBtn.classList.add("kept");
-        showToast("Ajoutée à tes recettes");
+        if (planned) {
+          showToast(`Ajoutée et prévue pour ${meta.dayLabels[planned.day]} · ${meta.mealLabels[planned.meal]}`);
+          await loadWeek();
+        } else {
+          showToast("Ajoutée à tes recettes (aucun créneau libre cette semaine)");
+        }
       } catch (e) {
         keepBtn.disabled = false;
         keepBtn.textContent = "Garder cette recette";
