@@ -1,18 +1,18 @@
-const CACHE_NAME = "menu-stp-v7";
+const CACHE_NAME = "menu-stp-v8";
 const SHELL_ASSETS = [
   "/",
   "/css/style.css",
   "/js/app.js",
-  "/manifest.webmanifest?v=2",
+  "/manifest.webmanifest?v=3",
   "/fonts/archivo-black.woff2",
   "/fonts/archivo-variable.woff2",
   "/fonts/space-mono-400.woff2",
   "/fonts/space-mono-700.woff2",
-  "/icons/favicon-32.png?v=2",
-  "/icons/apple-touch-icon.png?v=2",
-  "/icons/icon-192.png?v=2",
-  "/icons/icon-512.png?v=2",
-  "/icons/icon-maskable-512.png?v=2",
+  "/icons/favicon-32.png?v=3",
+  "/icons/apple-touch-icon.png?v=3",
+  "/icons/icon-192.png?v=3",
+  "/icons/icon-512.png?v=3",
+  "/icons/icon-maskable-512.png?v=3",
 ];
 
 self.addEventListener("install", (event) => {
