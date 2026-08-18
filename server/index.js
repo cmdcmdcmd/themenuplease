@@ -506,6 +506,177 @@ app.patch("/api/recipes/:id/favorite", (req, res) => {
   res.json({ ok: true, status: status === "loved" || status === "banned" ? status : null });
 });
 
+// ---------- "Ce qu'il reste dans le frigo ?" — suggestions via l'API Claude ----------
+
+const FRIDGE_MODEL = process.env.ANTHROPIC_FRIDGE_MODEL || "claude-sonnet-5";
+
+function buildFridgeSystemPrompt() {
+  const rayons = RAYON_ORDER.map((r) => `"${r}"`).join(" | ");
+  return `Tu es l'assistant culinaire de "The menu, please", une application de planification de repas pensée pour des familles avec profil TDAH (adultes et enfants).
+
+L'utilisateur va te donner en vrac, en langage libre, ce qu'il lui reste dans le frigo et ses placards. Ta tâche : proposer EXACTEMENT 3 recettes réalisables avec ces ingrédients + les basiques de placard suivants, toujours considérés disponibles sans qu'il soit besoin de les citer : sel, poivre, huile, vinaigre, ail, oignon, épices courantes, farine, sucre, beurre, bouillon.
+
+Contraintes strictes :
+- N'utilise QUE les ingrédients donnés par l'utilisateur + les basiques de placard ci-dessus. N'invente aucun ingrédient supplémentaire non mentionné et non basique.
+- Difficulté 1 ou 2 uniquement (1 = très simple, ~10-15 min, très peu d'étapes ; 2 = simple, ~20-30 min, quelques étapes) — jamais plus complexe, jamais de technique avancée.
+- Logique nutritionnelle TDAH : privilégie les protéines (précurseurs de dopamine), les fibres, et évite les sucres rapides isolés qui provoquent des pics puis chutes de glycémie (aggravant les difficultés de concentration) ; assiette copieuse mais pas lourde.
+- Intitulés courts et clairs, sans jargon.
+- Étapes très courtes, une action par étape, formulées à l'impératif — pensées pour quelqu'un qui décroche vite face à une recette longue.
+- Les quantités d'ingrédients sont données PAR PERSONNE (qty_per_person, pour une base de 2 personnes divisible) — reste cohérent et réaliste.
+
+Réponds UNIQUEMENT avec un JSON strict, sans aucun texte avant ou après, sans balises markdown (pas de \`\`\`), exactement sous cette forme (un tableau de 3 objets) :
+
+[
+  {
+    "nom": "string",
+    "temps_min": number,
+    "difficulte": 1,
+    "ingredients": [
+      { "name": "string", "rayon": ${rayons}, "qty_per_person": number, "unit": "string" }
+    ],
+    "etapes": ["string"],
+    "atouts_tdah": "string — 1 à 2 phrases concrètes (pas génériques) sur ce que cette recette apporte pour un cerveau TDAH"
+  }
+]`;
+}
+
+async function callAnthropic(systemPrompt, userMessage) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    const err = new Error("La clé ANTHROPIC_API_KEY n'est pas configurée côté serveur.");
+    err.status = 500;
+    throw err;
+  }
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: FRIDGE_MODEL,
+      max_tokens: 4096,
+      temperature: 0.7,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    const err = new Error(`Erreur de l'API Claude (${res.status}).`);
+    err.status = 502;
+    err.detail = body.slice(0, 300);
+    throw err;
+  }
+  const data = await res.json();
+  return (data.content || []).map((b) => b.text || "").join("");
+}
+
+function validateFridgeRecipe(r) {
+  return (
+    !!r &&
+    typeof r.nom === "string" && r.nom.trim().length > 0 &&
+    Number.isFinite(r.temps_min) && r.temps_min > 0 &&
+    (r.difficulte === 1 || r.difficulte === 2) &&
+    Array.isArray(r.ingredients) && r.ingredients.length > 0 &&
+    r.ingredients.every((i) =>
+      i && typeof i.name === "string" && i.name.trim().length > 0 &&
+      RAYON_ORDER.includes(i.rayon) &&
+      Number.isFinite(i.qty_per_person) && i.qty_per_person > 0 &&
+      typeof i.unit === "string" && i.unit.trim().length > 0
+    ) &&
+    Array.isArray(r.etapes) && r.etapes.length > 0 &&
+    r.etapes.every((s) => typeof s === "string" && s.trim().length > 0) &&
+    typeof r.atouts_tdah === "string" && r.atouts_tdah.trim().length > 0
+  );
+}
+
+// Extrait un premier bloc JSON même si le modèle a malgré tout entouré sa
+// réponse de texte ou de balises markdown, plutôt que d'échouer directement.
+function extractJson(text) {
+  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+  try {
+    return JSON.parse(trimmed);
+  } catch (e) {
+    const start = trimmed.indexOf("[");
+    const end = trimmed.lastIndexOf("]");
+    if (start === -1 || end === -1) throw e;
+    return JSON.parse(trimmed.slice(start, end + 1));
+  }
+}
+
+app.post("/api/fridge/suggest", async (req, res) => {
+  const ingredientsText = String((req.body || {}).ingredients || "").trim();
+  if (!ingredientsText) return res.status(400).json({ error: "Décris d'abord ce qu'il te reste." });
+  if (ingredientsText.length > 500) return res.status(400).json({ error: "Décris plus court (500 caractères max)." });
+
+  try {
+    const text = await callAnthropic(buildFridgeSystemPrompt(), ingredientsText);
+    let parsed;
+    try {
+      parsed = extractJson(text);
+    } catch (e) {
+      return res.status(502).json({ error: "Réponse illisible de l'assistant, réessaie." });
+    }
+    if (!Array.isArray(parsed) || parsed.length !== 3 || !parsed.every(validateFridgeRecipe)) {
+      return res.status(502).json({ error: "Réponse incomplète de l'assistant, réessaie." });
+    }
+    const recipes = parsed.map((r) => ({
+      ...r,
+      ingredients: r.ingredients.map((i) => ({ ...i, macro: classifyIngredientMacro(i.name, i.rayon) })),
+    }));
+    res.json({ recipes });
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || "Erreur inattendue." });
+  }
+});
+
+function slugify(s) {
+  return s
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40) || "recette";
+}
+
+app.post("/api/fridge/keep", (req, res) => {
+  const r = req.body;
+  if (!validateFridgeRecipe(r)) return res.status(400).json({ error: "Recette invalide." });
+
+  const exists = (rid) => !!db.prepare("SELECT 1 FROM recipes WHERE id = ?").get(rid);
+  let id = `frigo-${slugify(r.nom)}`;
+  if (exists(id)) {
+    let i = 2;
+    while (exists(`${id}-${i}`)) i++;
+    id = `${id}-${i}`;
+  }
+
+  db.prepare(`
+    INSERT INTO recipes (id, name, meal_type, prep_minutes, weekend_only, ratio, tags, spices, steps, inspiration, season)
+    VALUES (?, ?, 'diner', ?, 0, ?, ?, '[]', ?, ?, '[]')
+  `).run(
+    id,
+    r.nom.trim(),
+    Math.round(r.temps_min),
+    r.atouts_tdah.trim(),
+    JSON.stringify(["frigo-ia", `difficulte-${r.difficulte}`]),
+    JSON.stringify(r.etapes.map((s) => s.trim())),
+    "Suggestion IA — frigo"
+  );
+
+  const insertIngredient = db.prepare(`
+    INSERT INTO ingredients (recipe_id, name, rayon, qty_per_person, unit)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  for (const ing of r.ingredients) {
+    insertIngredient.run(id, ing.name.trim(), ing.rayon, ing.qty_per_person, ing.unit.trim());
+  }
+
+  res.json({ ok: true, id });
+});
+
 app.get("/api/shopping-list", (req, res) => {
   const planRows = db.prepare("SELECT * FROM weekly_plan WHERE recipe_id IS NOT NULL AND cancelled = 0").all();
 

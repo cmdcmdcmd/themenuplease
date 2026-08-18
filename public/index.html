@@ -100,6 +100,7 @@
         <h2 id="today-heading">Aujourd'hui</h2>
       </div>
       <div id="today-list" class="week-list today-cards"><!-- rempli en JS --></div>
+      <button id="btn-open-fridge" class="btn btn-ghost btn-fridge" type="button">Il te reste des trucs dans le frigo ?</button>
     </section>
 
     <!-- ===== VUE SEMAINE ===== -->
@@ -318,6 +319,23 @@
     </div>
     <p class="hand-note settings-note" style="margin-bottom:12px">le texte est déjà sélectionné — copie-le (Ctrl/Cmd+C, ou appui long puis "copier")</p>
     <textarea id="share-textarea" readonly class="share-textarea"></textarea>
+  </div>
+</div>
+
+<!-- ===== FEUILLE : ce qu'il reste dans le frigo ===== -->
+<div id="sheet-backdrop-fridge" class="sheet-backdrop" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="fridge-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="sheet-header">
+      <p class="sheet-eyebrow">Frigo</p>
+      <h3 id="fridge-title">Ce qu'il reste dans le frigo ?</h3>
+      <button class="sheet-close" type="button" data-close-fridge aria-label="Fermer">X</button>
+    </div>
+    <p class="hand-note settings-note" style="margin-bottom:14px">liste en vrac, pas besoin d'être précis·e — on complète avec les placards de base</p>
+    <textarea id="fridge-input" class="fridge-textarea" rows="3" placeholder="ex : courgettes, 2 œufs, un reste de riz, du fromage râpé…" maxlength="500"></textarea>
+    <p class="field-error mono" id="fridge-error" hidden></p>
+    <button id="btn-fridge-suggest" class="btn btn-primary cut-a" type="button">Trouver 3 idées</button>
+    <div id="fridge-results" class="fridge-results"><!-- rempli en JS --></div>
   </div>
 </div>
 

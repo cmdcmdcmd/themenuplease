@@ -848,7 +848,8 @@
     $("[data-close-recipe]").addEventListener("click", () => { $("#sheet-backdrop-recipe").hidden = true; });
     $("[data-close-settings]").addEventListener("click", () => { $("#sheet-backdrop-settings").hidden = true; });
     $("[data-close-share]").addEventListener("click", () => { $("#sheet-backdrop-share").hidden = true; });
-    [$("#sheet-backdrop"), $("#sheet-backdrop-recipe"), $("#sheet-backdrop-settings"), $("#sheet-backdrop-share")].forEach((backdrop) => {
+    $("[data-close-fridge]").addEventListener("click", () => { $("#sheet-backdrop-fridge").hidden = true; });
+    [$("#sheet-backdrop"), $("#sheet-backdrop-recipe"), $("#sheet-backdrop-settings"), $("#sheet-backdrop-share"), $("#sheet-backdrop-fridge")].forEach((backdrop) => {
       backdrop.addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
     });
   }
@@ -926,6 +927,130 @@
     }
   }
 
+  // ============ FRIGO (suggestions IA) ============
+  function fridgeIngredientRow(ing) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="ing-dot" data-macro="${ing.macro}"></span><span class="ing-name">${ing.name}</span><span class="qty">${formatQty(ing.qty_per_person)} ${ing.unit}</span>`;
+    return li;
+  }
+
+  function renderFridgeCard(recipe) {
+    const card = document.createElement("div");
+    card.className = "fridge-card";
+
+    const top = document.createElement("div");
+    top.className = "fridge-card-top";
+    const name = document.createElement("h4");
+    name.className = "fridge-card-name";
+    name.textContent = recipe.nom;
+    const meta = document.createElement("div");
+    meta.className = "fridge-card-meta";
+    meta.appendChild(pill(`${recipe.temps_min} min`));
+    meta.appendChild(pill(`Difficulté ${recipe.difficulte}`));
+    top.appendChild(name);
+    top.appendChild(meta);
+    card.appendChild(top);
+
+    const tip = document.createElement("p");
+    tip.className = "fridge-card-tip";
+    tip.textContent = recipe.atouts_tdah;
+    card.appendChild(tip);
+
+    const legend = document.createElement("div");
+    legend.className = "macro-legend mono";
+    legend.innerHTML = `<span><i class="lg-legume"></i>Légumes</span><span><i class="lg-proteine"></i>Protéines</span><span><i class="lg-glucide"></i>Glucides</span>`;
+    card.appendChild(legend);
+
+    const ingTitle = document.createElement("div");
+    ingTitle.className = "recipe-section-title";
+    ingTitle.textContent = "Ingrédients";
+    card.appendChild(ingTitle);
+
+    const ingList = document.createElement("ul");
+    ingList.className = "ingredient-list";
+    recipe.ingredients.forEach((ing) => ingList.appendChild(fridgeIngredientRow(ing)));
+    card.appendChild(ingList);
+
+    const stepsTitle = document.createElement("div");
+    stepsTitle.className = "recipe-section-title";
+    stepsTitle.textContent = "Préparation";
+    card.appendChild(stepsTitle);
+
+    const stepsList = document.createElement("ol");
+    stepsList.className = "steps-list";
+    recipe.etapes.forEach((s) => {
+      const li = document.createElement("li");
+      li.textContent = s;
+      stepsList.appendChild(li);
+    });
+    card.appendChild(stepsList);
+
+    const keepBtn = document.createElement("button");
+    keepBtn.type = "button";
+    keepBtn.className = "btn btn-primary cut-a btn-fridge-keep";
+    keepBtn.textContent = "Garder cette recette";
+    keepBtn.addEventListener("click", async () => {
+      keepBtn.disabled = true;
+      keepBtn.textContent = "…";
+      try {
+        await api("/api/fridge/keep", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(recipe),
+        });
+        keepBtn.textContent = "Ajoutée ✓";
+        keepBtn.classList.add("kept");
+        showToast("Ajoutée à tes recettes");
+      } catch (e) {
+        keepBtn.disabled = false;
+        keepBtn.textContent = "Garder cette recette";
+        showToast(e.message || "Impossible d'ajouter cette recette.");
+      }
+    });
+    card.appendChild(keepBtn);
+
+    return card;
+  }
+
+  async function submitFridgeSuggest() {
+    const input = $("#fridge-input");
+    const errEl = $("#fridge-error");
+    const btn = $("#btn-fridge-suggest");
+    const text = input.value.trim();
+    errEl.hidden = true;
+    $("#fridge-results").innerHTML = "";
+
+    if (!text) { errEl.textContent = "Décris d'abord ce qu'il te reste."; errEl.hidden = false; return; }
+
+    btn.disabled = true;
+    btn.textContent = "Ça mijote…";
+    try {
+      const { recipes } = await api("/api/fridge/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ingredients: text }),
+      });
+      const results = $("#fridge-results");
+      recipes.forEach((r) => results.appendChild(renderFridgeCard(r)));
+    } catch (e) {
+      errEl.textContent = e.message || "Ça n'a pas marché, réessaie.";
+      errEl.hidden = false;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Trouver 3 idées";
+    }
+  }
+
+  function initFridge() {
+    $("#btn-open-fridge").addEventListener("click", () => {
+      $("#fridge-input").value = "";
+      $("#fridge-error").hidden = true;
+      $("#fridge-results").innerHTML = "";
+      $("#sheet-backdrop-fridge").hidden = false;
+    });
+    $("#btn-fridge-suggest").addEventListener("click", submitFridgeSuggest);
+  }
+
   function initLockScreen() {
     $("#lock-submit").addEventListener("click", submitLock);
     [$("#lock-pin"), $("#lock-pin-confirm")].forEach((input) => {
@@ -940,6 +1065,7 @@
     initFavoriteControls();
     initSettings();
     initSheetClosers();
+    initFridge();
     meta = await api("/api/meta");
     await loadWeek();
 
