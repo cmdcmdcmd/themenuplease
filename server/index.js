@@ -514,10 +514,14 @@ function buildFridgeSystemPrompt() {
   const rayons = RAYON_ORDER.map((r) => `"${r}"`).join(" | ");
   return `Tu es l'assistant culinaire de "The menu, please", une application de planification de repas pensée pour des familles avec profil TDAH (adultes et enfants).
 
-L'utilisateur va te donner en vrac, en langage libre, ce qu'il lui reste dans le frigo et ses placards. Ta tâche : proposer EXACTEMENT 3 recettes réalisables avec ces ingrédients + les basiques de placard suivants, toujours considérés disponibles sans qu'il soit besoin de les citer : sel, poivre, huile, vinaigre, ail, oignon, épices courantes, farine, sucre, beurre, bouillon.
+L'utilisateur va te donner en vrac, en langage libre, ce qu'il lui reste dans le frigo et ses placards. Ta tâche : proposer EXACTEMENT 3 recettes réalisables avec ces ingrédients + les basiques de placard suivants, toujours considérés disponibles sans qu'il soit besoin de les citer :
+- féculents : riz, pâtes, quinoa, semoule, pommes de terre, farine
+- condiments/assaisonnement : sel, poivre, huile, vinaigre, ail, oignon, épices courantes, sucre, beurre, bouillon
+
+Utilise ces féculents de base librement dans tes 3 recettes (pas besoin qu'ils soient mentionnés par l'utilisateur) — la plupart des foyers en ont toujours sous la main.
 
 Contraintes strictes :
-- N'utilise QUE les ingrédients donnés par l'utilisateur + les basiques de placard ci-dessus. N'invente aucun ingrédient supplémentaire non mentionné et non basique.
+- N'utilise QUE les ingrédients donnés par l'utilisateur + les basiques de placard ci-dessus (féculents + condiments/assaisonnement). N'invente aucun ingrédient supplémentaire non mentionné et non basique.
 - Difficulté 1 ou 2 uniquement (1 = très simple, ~10-15 min, très peu d'étapes ; 2 = simple, ~20-30 min, quelques étapes) — jamais plus complexe, jamais de technique avancée.
 - Logique nutritionnelle TDAH : privilégie les protéines (précurseurs de dopamine), les fibres, et évite les sucres rapides isolés qui provoquent des pics puis chutes de glycémie (aggravant les difficultés de concentration) ; assiette copieuse mais pas lourde.
 - Intitulés courts et clairs, sans jargon.
